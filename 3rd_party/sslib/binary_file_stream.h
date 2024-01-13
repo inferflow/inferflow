@@ -33,7 +33,7 @@ public:
         MODE_TEXT   = 0x80  //text mode, not supported now
     };
 
-    const static uint32_t DEFAULT_BUF_SIZE = 1024000;
+    const static uint32_t DEFAULT_BUF_SIZE = 4096;
 
 public:
     BinaryFileStream();
