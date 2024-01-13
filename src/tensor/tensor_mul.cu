@@ -1,6 +1,7 @@
 #include "tensor_mul.h"
 #include <algorithm>
 #include "kernels/gemm.h"
+#include "kernels/gemm_wmma.h"
 #include "kernels/gemv.h"
 #include "tensor_opr.h"
 #include "host_tensor_opr.h"
@@ -34,6 +35,9 @@ bool TensorMul::Gemm(DeviceTensor &C, const DeviceTensor &A, const DeviceTensor 
 #else
             LogError("Cutlass is not enabled.");
 #endif //USE_CUTLASS
+            break;
+        case MatrixMulAlg::Bruce:
+            ret = Gemm_Bruce(C, A, B, alpha, beta, is_b_column_major, is_sub_level);
             break;
         default:
             ret = Gemm_Alg2(C, A, B, alpha, beta, is_b_column_major, is_sub_level);
@@ -239,7 +243,7 @@ bool TensorMul::Gemm_Alg2(DeviceTensor &C, const DeviceTensor &A,
     bool is_compatible = true;
     if (is_sub_level)
     {
-        r = A.ne[2] / B.ne[2];
+        //r = A.ne[2] / B.ne[2];
         if (is_b_column_major)
         {
             if (A.ne[2] != r * B.ne[2] || A.ne[0] != B.ne[0])
@@ -398,6 +402,64 @@ bool TensorMul::Gemm_Cutlass(DeviceTensor &C, const DeviceTensor &A,
     return ret;
 }
 #endif //USE_CUTLASS
+
+//static
+bool TensorMul::Gemm_Bruce(DeviceTensor &C, const DeviceTensor &A,
+    const DeviceTensor &B, float alpha, float beta,
+    bool is_b_column_major, bool is_sub_level)
+{
+    (void)is_sub_level;
+    int a_rows = A.Rows(), a_cols = A.Columns();
+    int b_rows = B.Rows(), b_cols = B.Columns();
+    int c_rows = C.Rows(), c_cols = C.Columns();
+
+    bool is_compatible = HostTensorOpr::IsCompatible_MulMat(a_rows, a_cols,
+        b_rows, b_cols, c_rows, c_cols, is_b_column_major);
+    if (!is_compatible) {
+        return false;
+    }
+
+    if (C.data == nullptr || c_rows * c_cols != C.size) {
+        LogWarning("Invalid tensor C");
+        return false;
+    }
+
+    int M = a_rows, K = a_cols;
+    int N = is_b_column_major ? b_rows : b_cols;
+
+    dim3 block(THREADS_PER_BLOCK);
+    dim3 grid(BLOCK_STRIDE, div_ceil(M, BLOCK_ROWS), div_ceil(N, BLOCK_COLS * BLOCK_STRIDE));
+    size_t smem_max_size = std::max((BLOCK_ROWS + BLOCK_COLS) * AB_SMEM_STRIDE * sizeof(half),
+        BLOCK_ROWS * C_SMEM_STRIDE * sizeof(half));
+    cudaFuncSetAttribute(GemmHalf_Bruce_Kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_max_size);
+
+    if (A.data_type == ElementType::F16)
+    {
+        const half *a_data = A.data_f16();
+        const half *b_data = B.data_f16();
+        half *c_data = C.data_f16();
+
+        if (is_b_column_major)
+        { //(M, K) * (N, K) = (M, N)
+            GemmHalf_Bruce_Kernel<<<grid, block, smem_max_size>>>(a_data, b_data, c_data, M, N, K);
+        }
+        else
+        { //(M, K) * (K, N) = (M, N)
+            LogWarning("is_b_column_major == false is NOT implemented for Gemm_Bruce");
+            return false;
+        }
+    }
+    else
+    {
+        LogWarning("Only FP16 is supported by Gemm_Bruce.");
+        return false;
+    }
+
+    cudaDeviceSynchronize(); //Wait for kernels to finish
+    auto status = cudaGetLastError();
+    bool ret = CudaUtil::CheckReturnCode(status, "Gemm_Bruce");
+    return ret;
+}
 
 //static
 bool TensorMul::GemmSparse(DeviceTensor &C, const DeviceTensor &A,
@@ -605,6 +667,9 @@ bool TensorMul::Gemv_AX_QuantHalf(DeviceTensor &Y, const DeviceTensor &A,
     case ElementType::Q8_B32T2:
         ret = Gemv_AX_Q8_B32T2(Y, A, X);
         break;
+    case ElementType::Q6_B64T1:
+        ret = Gemv_AX_Q6_B64T1(Y, A, X);
+        break;
     case ElementType::Q5:
         ret = Gemv_AX_Q5(Y, A, X);
         break;
@@ -648,6 +713,9 @@ bool TensorMul::Gemv_AX_QuantQ8(DeviceTensor &Y, const DeviceTensor &A,
         break;
     case ElementType::Q8_B32T2:
         ret = Gemv_AX8_Q8_B32T2(Y, A, X);
+        break;
+    case ElementType::Q6_B64T1:
+        //ret = Gemv_AX8_Q6_B64T1(Y, A, X);
         break;
     case ElementType::Q5:
         //ret = Gemv_AX8_Q8Q5(Y, A, X);
@@ -824,6 +892,26 @@ bool TensorMul::Gemv_AX_Q8_B32T2(DeviceTensor &Y, const DeviceTensor &A,
     const half *x_data = X.data_f16();
     half *y_data = Y.data_f16();
     GemvHalf_AX_Q8_B32T2_Kernel<<<grid, block>>>(y_data, a_data, x_data, cy, cx);
+    return true;
+}
+
+bool TensorMul::Gemv_AX_Q6_B64T1(DeviceTensor &Y, const DeviceTensor &A, const DeviceTensor &X)
+{
+    int cy = A.Rows(), cx = A.Columns();
+    //2048 = 32 * 64 (i.e., warp size * Q6_B64_CAPACITY)
+    bool ret = GemvCheckN(cx, 2048, Q6_B64_CAPACITY);
+    Macro_RetFalseIf(!ret);
+
+    dim3 block, grid;
+    block.x = cx % 8192 == 0 ? 128 : (cx % 4096 == 0 ? 64 : 32);
+    block.y = 128 / block.x;
+    grid.x = 1;
+    grid.y = (cy + block.y - 1) / block.y;
+
+    const uint8_t *a_data = (const uint8_t*)A.data;
+    const half *x_data = X.data_f16();
+    half *y_data = Y.data_f16();
+    GemvHalf_AX_Q6_B64T1_Kernel<<<grid, block>>>(y_data, a_data, x_data, cy, cx);
     return true;
 }
 

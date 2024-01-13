@@ -21,6 +21,7 @@ enum class ElementType
     Q8_LOG,     //8-bit quantization: global logarithmic
     Q8_B32T1,   //8-bit quantization: block linear (block capacity 32, type-1)
     Q8_B32T2,   //8-bit quantization: block linear (block capacity 32, type-2)
+    Q6_B64T1,   //6-bit quantization: block linear (block capaticy 64, type-1)
     Q5,
     Q4_B16,
     Q4_B32T1A,
@@ -71,7 +72,8 @@ enum class MatrixMulAlg
     Alg2,
     Alg3,
     Cublas,
-    Cutlass
+    Cutlass,
+    Bruce
 };
 
 enum class VectorMatrixMulAlg

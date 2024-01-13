@@ -23,6 +23,8 @@ int TensorCommon::ElementSize(ElementType etype)
         break;
     case ElementType::Q8_GL:
     case ElementType::Q8_LOG:
+    case ElementType::Q8_B32T1:
+    case ElementType::Q8_B32T2:
         element_size = 1;
         break;
     default:
@@ -54,6 +56,9 @@ int TensorCommon::BlockSize(ElementType etype)
             break;
         case ElementType::Q8_B32T2:
             block_size = sizeof(BlockQ8_B32T2);
+            break;
+        case ElementType::Q6_B64T1:
+            block_size = sizeof(BlockQ6_B64T1);
             break;
         case ElementType::Q5:
             block_size = sizeof(BlockQ5_B32T1);
@@ -103,6 +108,9 @@ int TensorCommon::BlockCapacity(ElementType etype)
     case ElementType::Q8_B32T2:
         block_capacity = Q8B32_CAPACITY;
         break;
+    case ElementType::Q6_B64T1:
+        block_capacity = Q6_B64_CAPACITY;
+        break;
     case ElementType::Q5:
         block_capacity = Q5B32_CAPACITY;
         break;
@@ -149,6 +157,7 @@ void TensorCommon::InitElementTypeMap(ElementTypeMap &type_map)
     type_map["fp16"] = ElementType::F16;
     type_map["f16"] = ElementType::F16;
     type_map["q8"] = ElementType::Q8_B32T1;
+    type_map["q6"] = ElementType::Q6_B64T1;
     type_map["q4"] = ElementType::Q4_B32T1A;
     type_map["q3h"] = ElementType::Q3H_B64T1;
     type_map["q3"] = ElementType::Q3_B32T1B;
@@ -157,6 +166,7 @@ void TensorCommon::InitElementTypeMap(ElementTypeMap &type_map)
     type_map["q8_log"] = ElementType::Q8_LOG;
     type_map["q8_b32t1"] = ElementType::Q8_B32T1;
     type_map["q8_b32t2"] = ElementType::Q8_B32T2;
+    type_map["q6_b64t1"] = ElementType::Q6_B64T1;
     type_map["q5"] = ElementType::Q5;
     type_map["q4_b16"] = ElementType::Q4_B16;
     type_map["q4_b32t1a"] = ElementType::Q4_B32T1A;
@@ -183,6 +193,7 @@ void TensorCommon::InitElementTypeMap(ElementTypeNameMap &type_name_map)
     type_name_map[ElementType::Q8_LOG] = "q8_log";
     type_name_map[ElementType::Q8_B32T1] = "q8_b32t1";
     type_name_map[ElementType::Q8_B32T2] = "q8_b32t2";
+    type_name_map[ElementType::Q6_B64T1] = "q6_b64t1";
     type_name_map[ElementType::Q5] = "q5";
     type_name_map[ElementType::Q4_B16] = "q4_b16";
     type_name_map[ElementType::Q4_B32P8] = "q4_b32p8";

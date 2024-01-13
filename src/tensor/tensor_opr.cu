@@ -1180,8 +1180,8 @@ bool TensorOpr::SoftMax_Alg2(DeviceTensor &B, const DeviceTensor &A,
     float neg_infinity = -std::numeric_limits<float>::infinity();
 
     int cx = A.ne[0], cy = A.ne[1], cz = A.ne[2];
-    dim3 block(WARP_SIZE, 1);
-    dim3 grid(1, cy * cz);
+    dim3 block(WARP_SIZE, 1, 1);
+    dim3 grid(1, cy, cz);
 
     if (A.data_type == ElementType::F16)
     {
@@ -1605,6 +1605,9 @@ bool TensorOpr::Quantize(DeviceTensor &B, const DeviceTensor &A)
     case ElementType::Q8_B32T2:
         ret = QuantizeQ8_B32T2(B, A, 2);
         break;
+    case ElementType::Q6_B64T1:
+        ret = QuantizeQ6_B64T1(B, A);
+        break;
     case ElementType::Q5:
         ret = QuantizeQ5(B, A);
         break;
@@ -1745,6 +1748,44 @@ bool TensorOpr::QuantizeQ8_B32T2(DeviceTensor &B, const DeviceTensor &A, int alg
     }
 
     bool ret = CudaUtil::DeviceSynchronize("QuantizeQ8_B32T2");
+    return ret;
+}
+
+//static
+bool TensorOpr::QuantizeQ6_B64T1(DeviceTensor &B, const DeviceTensor &A)
+{
+    if (B.data_type != ElementType::Q6_B64T1) {
+        LogError("QuantizeQ6_B64T1: The data type of B should be Q6_B64T1");
+        return false;
+    }
+
+    const int quant_block_capacity = Q6_B64_CAPACITY;
+    int M = A.Rows(), N = A.Columns();
+    if (N % quant_block_capacity != 0) {
+        LogError("The number of columns should be a multiple of %d", quant_block_capacity);
+        return false;
+    }
+
+    int blocks_per_row = N / quant_block_capacity;
+    dim3 block(8, 16);
+    dim3 grid((blocks_per_row + block.x - 1) / block.x, (M + block.y - 1) / block.y);
+    //cout << "grid: " << grid << "; block: " << block << endl;
+
+    uint8_t *b_data = (uint8_t*)B.data;
+    if (A.data_type == ElementType::F16)
+    {
+        const half *a_data = A.data_f16();
+        Tensor_QuantizeQ6_B64T1_Kernel<half><<<grid, block>>>(a_data, b_data,
+            M, N, (int)B.bytes_per_row, blocks_per_row);
+    }
+    else
+    {
+        const float *a_data = A.data_f32();
+        Tensor_QuantizeQ6_B64T1_Kernel<float><<<grid, block>>>(a_data, b_data,
+            M, N, (int)B.bytes_per_row, blocks_per_row);
+    }
+
+    bool ret = CudaUtil::DeviceSynchronize("QuantizeQ6_B64T1");
     return ret;
 }
 
@@ -2091,6 +2132,9 @@ bool TensorOpr::Dequantize(DeviceTensor &B, const DeviceTensorEx &Ax,
     case ElementType::Q8_B32T2:
         ret = DequantizeQ8_B32T2(B, A);
         break;
+    case ElementType::Q6_B64T1:
+        ret = DequantizeQ6_B64T1(B, A);
+        break;
     case ElementType::Q5:
         ret = DequantizeQ5(B, A, be_transpose, alg_id);
         break;
@@ -2211,6 +2255,44 @@ bool TensorOpr::DequantizeQ8_B32T2(DeviceTensor &B, const DeviceTensor &A)
     {
         float *b_data = B.data_f32();
         Tensor_DequantizeQ8_B32T2_Kernel<float><<<grid, block>>>(a_data, b_data,
+            M, N, (int)A.bytes_per_row, blocks_per_row);
+    }
+
+    return true;
+}
+
+//static
+bool TensorOpr::DequantizeQ6_B64T1(DeviceTensor &B, const DeviceTensor &A)
+{
+    //bool be_transpose = false;
+    if (A.data_type != ElementType::Q6_B64T1) {
+        LogError("The data type (%d) of A should be Q6_B64T1", A.data_type);
+        return false;
+    }
+
+    const int quant_block_capacity = Q6_B64_CAPACITY;
+    int M = A.Rows(), N = A.Columns();
+    if (N % quant_block_capacity != 0) {
+        LogError("The number of columns should be a multiple of %d", quant_block_capacity);
+        return false;
+    }
+
+    int blocks_per_row = N / quant_block_capacity;
+    dim3 block(16, 8);
+    dim3 grid(blocks_per_row, (M + block.y - 1) / block.y);
+    //cout << "grid: " << grid << "; block: " << block << endl;
+
+    const uint8_t *a_data = (const uint8_t*)A.data;
+    if (B.data_type == ElementType::F16)
+    {
+        half *b_data = B.data_f16();
+        Tensor_DequantizeQ6_B64T1_Kernel<half><<<grid, block>>>(a_data, b_data,
+            M, N, (int)A.bytes_per_row, blocks_per_row);
+    }
+    else
+    {
+        float *b_data = B.data_f32();
+        Tensor_DequantizeQ6_B64T1_Kernel<float><<<grid, block>>>(a_data, b_data,
             M, N, (int)A.bytes_per_row, blocks_per_row);
     }
 

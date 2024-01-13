@@ -421,6 +421,7 @@ bool DeviceTensor::CopyRowToHost(std::vector<float> &host_vec, int y, int z) con
         {
             const BlockQ8_B32T1 *q8_b32t1_blocks = nullptr;
             const BlockQ8_B32T2 *q8_b32t2_blocks = nullptr;
+            const BlockQ6_B64T1 *q6_b64t1_blocks = nullptr;
             const BlockQ5_B32T1 *q5_blocks = nullptr;
             const BlockQ4_B16 *q4b16_blocks = nullptr;
             const BlockQ4_B32T1 *q4b32t1_blocks = nullptr;
@@ -445,6 +446,11 @@ bool DeviceTensor::CopyRowToHost(std::vector<float> &host_vec, int y, int z) con
                 q8_b32t2_blocks = (const BlockQ8_B32T2*)med_data.data();
                 block_num = this->bytes_per_row / sizeof(BlockQ8_B32T2);
                 Quantization::DequantizeRow_Q8_B32T2(host_vec.data(), q8_b32t2_blocks, block_num);
+                break;
+            case ElementType::Q6_B64T1:
+                q6_b64t1_blocks = (const BlockQ6_B64T1*)med_data.data();
+                block_num = this->bytes_per_row / sizeof(BlockQ6_B64T1);
+                Quantization::DequantizeRow_Q6_B64T1(host_vec.data(), q6_b64t1_blocks, block_num);
                 break;
             case ElementType::Q5:
                 q5_blocks = (const BlockQ5_B32T1*)med_data.data();
