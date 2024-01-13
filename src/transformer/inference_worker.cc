@@ -58,12 +58,34 @@ bool GpuInferenceWorker::Init(int id, int worker_num, int group_id, int group_nu
     int max_head_num = max(hparams.decoder_heads, hparams.encoder_heads);
     soft_max_aux_tensor_.New(ElementType::F16, max_head_num * max_context_len);
 
+    aux_memory_size_ = 0;
+    int mem_size = 160 * 1024 * 1024; //160MB
     for (int idx = 0; idx < LOCAL_DEVICE_HEAP_NUM; idx++) {
-        local_device_heaps_[idx].Init(160 * 1000 * 1000); //160MB
+        local_device_heaps_[idx].Init(mem_size);
     }
-    local_device_heap_.Init(16 * 1000 * 1000); //16MB
-    layer_local_device_heap_.Init(160 * 1000 * 1000); //160MB
-    aux_buffer_.New(hparams.embd_dims * 256);
+    aux_memory_size_ += (mem_size * LOCAL_DEVICE_HEAP_NUM);
+
+    mem_size = 16 * 1024 * 1024;
+    local_device_heap_.Init(mem_size);
+    aux_memory_size_ += mem_size;
+
+    mem_size = 160 * 1000 * 1000; //160MB
+    int fp16_size = sizeof(inferflow_fp16);
+    bool is_last = group_id_ + 1 >= group_num_;
+    if (model_spec.max_input_len > 1024) {
+        mem_size *= ((model_spec.max_context_len + 1023) / 1024);
+    }
+    if (is_last)
+    {
+        int mem_size2 = 2 * model_spec.max_context_len * hparams.vocab_size * fp16_size;
+        mem_size += max(mem_size / 2, mem_size2);
+    }
+    layer_local_device_heap_.Init(mem_size);
+    aux_memory_size_ += mem_size;
+
+    int buffer_len = hparams.embd_dims * 256;
+    aux_buffer_.New(buffer_len);
+    aux_memory_size_ += (buffer_len * fp16_size);
 
     bool ret = true;
     if (device_token_id_array_ == nullptr)
@@ -111,8 +133,9 @@ bool GpuInferenceWorker::Init(int id, int worker_num, int group_id, int group_nu
 
         int r = 0;//is_by_layer ? 0 : id_;
         int m = 1;//is_by_layer ? 1 : worker_num;
-        ret = proc_data->kv_cache.Init(ElementType::F16, max_context_len, kv_cache_dim,
-            start_layer, end_layer, model_spec.host_kv_cache_percent, r, m);
+        ret = proc_data->kv_cache.Init(model_spec.device_kv_cache_data_type,
+            max_context_len, kv_cache_dim, start_layer, end_layer,
+            model_spec.host_kv_cache_percent, r, m);
         if (!ret)
         {
             LogError("Worker %d: Failed to initialize the KV cache", id_);
@@ -122,9 +145,9 @@ bool GpuInferenceWorker::Init(int id, int worker_num, int group_id, int group_nu
         if (!is_encoder_only && !is_decoder_only && model_spec.hyper_params.encoder_layers > 0
             && model_spec.has_cross_attn_kv_cache)
         {
-            ret = proc_data->cross_attn_kv_cache.Init(ElementType::F16, max_context_len,
-                kv_cache_dim, decoder_layer_range_.start, decoder_layer_range_.end,
-                model_spec.host_kv_cache_percent, r, m);
+            ret = proc_data->cross_attn_kv_cache.Init(model_spec.device_kv_cache_data_type,
+                max_context_len, kv_cache_dim, decoder_layer_range_.start,
+                decoder_layer_range_.end, model_spec.host_kv_cache_percent, r, m);
             if (!ret)
             {
                 LogError("Worker %d: Failed to initialize the cross-attention KV cache", id_);
@@ -469,6 +492,8 @@ DeviceTensor* GpuInferenceWorker::ProcessPostLayer(DeviceTensor *layer_input,
     const StdDeviceNetwork *device_net = GetDeviceNet();
     bool is_b_column_major = !config_ex_->is_gpu_tensor_row_major;
 
+    ClearLayerLocalMemory();
+
     const auto *output_norm = is_encoder_ ? device_net->encoder_output_norm
         : device_net->decoder_output_norm;
 
@@ -502,7 +527,9 @@ DeviceTensor* GpuInferenceWorker::ProcessPostLayer(DeviceTensor *layer_input,
     if (ret && !is_encoder_ && (is_by_layer_ || id_ + 1 == worker_num_))
     {
         //MatrixMulAlg matrix_mul_alg = MatrixMulAlg::Alg2;
-        out = CreateLocalTensor(ElementType::F16, vocab_size, cy * cz, 0, false, heap_idx);
+        int scenario_id = 90;
+        out = CreateLocalTensor(ElementType::F16, vocab_size, cy * cz, 0,
+            false, heap_idx, scenario_id);
         bool use_full_quant_gemv = false;
         if (device_net->output_quant != nullptr) {
             use_full_quant_gemv = GetUseFullQuantGemv(*norm2, *device_net->output_quant);
@@ -588,6 +615,8 @@ DeviceTensor* GpuInferenceWorker::ProcessOutputTransLayer(
     const auto &pre_norm = device_net->output_transform.pre_norm;
     const auto &dense = device_net->output_transform.dense;
     const auto &post_norm = device_net->output_transform.post_norm;
+
+    ClearLayerLocalMemory();
 
     DeviceTensor *layer_output = layer_input;
     if (pre_norm.weight != nullptr)
@@ -820,7 +849,7 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer(int layer_idx,
             PrintTensor(layer_out, 8, 8, 8, "layer_out (before_post_norm):\n", layer_idx);
         }
 
-        DeviceTensor *post_norm = CreateLocalTensor(*layer_out, true, heap_idx);
+        DeviceTensor *post_norm = CreateLocalTensor(*layer_out, false, heap_idx);
         TensorOpr::LayerNormalization(*post_norm, *layer_out, model_spec.norm_alg,
             ffn->post_norm.tensor, ffn->post_norm_b.tensor);
         layer_out = post_norm;
@@ -865,6 +894,15 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
     int layer_base_phase = (layer_idx + 1) * 100;
     bool is_cross_attn = input_kv != nullptr;
     int perf_base = (layer_idx + 1) * 10000 + (is_cross_attn ? 600 : 500);
+
+    AttentionParams params;
+    params.is_cross_attn = is_cross_attn;
+    params.layer_idx = layer_idx;
+    params.head_num = head_num;
+    params.kv_head_num = kv_head_num;
+    params.head_dim = head_dim;
+    params.heads_per_kv_group = heads_per_kv_group;
+    params.heap_idx = heap_idx;
 
     PosEmbeddingParams pos_embd_params;
     pos_embd_params.heads = hparams_heads; //!!! not head_num
@@ -1000,74 +1038,10 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
         int q_prefix_len = query.prefix_len;
         int q_token_num = query.token_num;
 
-        //cur_q structure: (head_dim, head_num, token_num)
-        DeviceTensor sub_q;
-        sub_q.data_type = cur_qkv.q->data_type;
-        sub_q.SetStructure(cur_qkv.q->ne[0], cur_qkv.q->ne[1], q_token_num);
-        sub_q.data = cur_qkv.q->RowData(0, query.start_row);
-        //sub_q.data = cur_q->data;
-        sub_q.SetAutoFree(false);
-
-        TensorOpr::TransposeYZ(sub_q);
-
         TaskMonitor tm_sub;
-        DeviceTensor *kq = nullptr;
-        float scale = 1.0f / sqrtf(float(head_dim));
-        if (is_cross_attn)
-        {
-            DeviceTensor sub_k(false);
-            sub_k.data_type = cur_qkv.q->data_type;
-            int encoder_token_num = input_kv->query_list[q_idx].second;
-            if (model_spec.has_cross_attn_kv_cache)
-            {
-                sub_k.data = k_cache_item_.data;
-                layer_kv_cache->GetKRows(sub_k, 0, encoder_token_num);
-                is_succ = TensorOpr::Reshape(sub_k, 3, head_dim, head_num, encoder_token_num);
-                Macro_RetxIf(attn_out, !is_succ, LogError("Reshape failed"));
-            }
-            else
-            {
-                sub_k.SetStructure(head_dim, head_num, encoder_token_num);
-                sub_k.data = cur_qkv.k->RowData(input_kv->query_list[q_idx].first);
-            }
-
-            TensorOpr::TransposeYZ(sub_k);
-
-            kq = CreateLocalTensor(ElementType::F16, encoder_token_num,
-                q_token_num, head_num, true, heap_idx);
-            is_succ = TensorMul::Gemm(*kq, sub_q, sub_k, scale, 0, true,
-                is_sub_level, MatrixMulAlg::Alg2);
-        }
-        else
-        {
-            DeviceTensor k_with_ctx(false);
-            k_with_ctx.data_type = cur_qkv.q->data_type;
-            k_with_ctx.data = k_cache_item_.data;
-            layer_kv_cache->GetKRows(k_with_ctx, 0, q_prefix_len + q_token_num);
-            is_succ = TensorOpr::Reshape(k_with_ctx, 3, head_dim, kv_head_num,
-                q_prefix_len + q_token_num);
-            Macro_RetxIf(attn_out, !is_succ, LogError("Reshape failed"));
-
-            TensorOpr::TransposeYZ(k_with_ctx);
-            DeviceTensor *k_with_ctx_ptr = &k_with_ctx;
-            if (heads_per_kv_group > 1)
-            {
-                k_with_ctx_ptr = CreateLocalTensor(ElementType::F16, head_dim,
-                    q_prefix_len + q_token_num, head_num, true, heap_idx);
-                TensorOpr::RepeatKV(*k_with_ctx_ptr, k_with_ctx, heads_per_kv_group);
-            }
-
-            if (config_->debug.show_tensors && layer_idx == layer_idx_for_study_)
-            {
-                PrintTensor(&sub_q, 8, 6, 3, "sub_q (10231):\n", layer_idx);
-                PrintTensor(k_with_ctx_ptr, 8, 3, 6, "k_with_ctx (10232):\n", layer_idx);
-            }
-
-            kq = CreateLocalTensor(ElementType::F16, q_prefix_len + q_token_num,
-                q_token_num, head_num, true, heap_idx);
-            is_succ = TensorMul::Gemm(*kq, sub_q, *k_with_ctx_ptr, scale, 0, true,
-                is_sub_level, MatrixMulAlg::Alg2);
-        }
+        DeviceTensor *kq = CalculateProductKQ(cur_qkv, query, *layer_kv_cache,
+            input_kv, params, q_idx);
+        Macro_RetIf(attn_out, kq == nullptr);
 
         if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_
             && query_num >= 1)
@@ -1531,6 +1505,93 @@ bool GpuInferenceWorker::Attention_CalculateCurQKV(CurQKV &cur_qkv, int layer_id
     return ret;
 }
 
+DeviceTensor* GpuInferenceWorker::CalculateProductKQ(const CurQKV &cur_qkv,
+    const QueryProcInput &query, LayerKVCache &layer_kv_cache, const InputKV *input_kv,
+    const AttentionParams &params, int q_idx)
+{
+    const auto &model_spec = model_ptr_->spec;
+    int layer_idx = params.layer_idx;
+    int head_num = params.head_num;
+    int kv_head_num = params.kv_head_num;
+    int head_dim = params.head_dim;
+    int heads_per_kv_group = params.heads_per_kv_group;
+    int heap_idx = params.heap_idx;
+    int q_prefix_len = query.prefix_len;
+    int q_token_num = query.token_num;
+    bool is_sub_level = true;
+
+    //cur_q structure: (head_dim, head_num, token_num)
+    DeviceTensor sub_q;
+    sub_q.data_type = cur_qkv.q->data_type;
+    sub_q.SetStructure(cur_qkv.q->ne[0], cur_qkv.q->ne[1], q_token_num);
+    sub_q.data = cur_qkv.q->RowData(0, query.start_row);
+    //sub_q.data = cur_q->data;
+    sub_q.SetAutoFree(false);
+
+    TensorOpr::TransposeYZ(sub_q);
+
+    DeviceTensor *kq = nullptr;
+    bool is_succ = true;
+    float scale = 1.0f / sqrtf(float(head_dim));
+    if (params.is_cross_attn)
+    {
+        DeviceTensor sub_k(false);
+        sub_k.data_type = cur_qkv.q->data_type;
+        int encoder_token_num = input_kv->query_list[q_idx].second;
+        if (model_spec.has_cross_attn_kv_cache)
+        {
+            sub_k.data = k_cache_item_.data;
+            layer_kv_cache.GetKRows(sub_k, 0, encoder_token_num);
+            is_succ = TensorOpr::Reshape(sub_k, 3, head_dim, head_num, encoder_token_num);
+            Macro_RetxIf(nullptr, !is_succ, LogError("Reshape failed"));
+        }
+        else
+        {
+            sub_k.SetStructure(head_dim, head_num, encoder_token_num);
+            sub_k.data = cur_qkv.k->RowData(input_kv->query_list[q_idx].first);
+        }
+
+        TensorOpr::TransposeYZ(sub_k);
+
+        kq = CreateLocalTensor(ElementType::F16, encoder_token_num,
+            q_token_num, head_num, true, heap_idx);
+        is_succ = TensorMul::Gemm(*kq, sub_q, sub_k, scale, 0, true,
+            is_sub_level, MatrixMulAlg::Alg2);
+    }
+    else
+    {
+        DeviceTensor k_with_ctx(false);
+        k_with_ctx.data_type = cur_qkv.q->data_type;
+        k_with_ctx.data = k_cache_item_.data;
+        layer_kv_cache.GetKRows(k_with_ctx, 0, q_prefix_len + q_token_num);
+        is_succ = TensorOpr::Reshape(k_with_ctx, 3, head_dim, kv_head_num,
+            q_prefix_len + q_token_num);
+        Macro_RetxIf(nullptr, !is_succ, LogError("Reshape failed"));
+
+        TensorOpr::TransposeYZ(k_with_ctx);
+        DeviceTensor *k_with_ctx_ptr = &k_with_ctx;
+        if (heads_per_kv_group > 1)
+        {
+            k_with_ctx_ptr = CreateLocalTensor(ElementType::F16, head_dim,
+                q_prefix_len + q_token_num, head_num, true, heap_idx);
+            TensorOpr::RepeatKV(*k_with_ctx_ptr, k_with_ctx, heads_per_kv_group);
+        }
+
+        if (config_->debug.show_tensors && layer_idx == layer_idx_for_study_)
+        {
+            PrintTensor(&sub_q, 8, 6, 3, "sub_q (10231):\n", layer_idx);
+            PrintTensor(k_with_ctx_ptr, 8, 3, 6, "k_with_ctx (10232):\n", layer_idx);
+        }
+
+        kq = CreateLocalTensor(ElementType::F16, q_prefix_len + q_token_num,
+            q_token_num, head_num, true, heap_idx);
+        is_succ = TensorMul::Gemm(*kq, sub_q, *k_with_ctx_ptr, scale, 0, true,
+            is_sub_level, MatrixMulAlg::Alg2);
+    }
+
+    return is_succ ? kq : nullptr;
+}
+
 DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_FeedForward(int layer_idx,
     const StdDeviceNetwork::FeedForwardLayer &layer, DeviceTensor *input_tensor,
     int heap_idx, bool is_encoder)
@@ -1980,8 +2041,9 @@ bool GpuInferenceWorker::MatrixMultiplication(DeviceTensor &C, const DeviceTenso
         {
             if (is_b_column_major)
             {
+                int scenario_id = 101;
                 DeviceTensor *tensor_trans = CreateLocalTensor(ElementType::F16,
-                    C.Rows(), C.Columns(), 0, true, 0);
+                    C.Rows(), C.Columns(), 0, true, 0, scenario_id);
                 ret = cublas_engine_.GemmEx(*tensor_trans, A, *b_ptr, 1.0f, 0, is_b_column_major);
                 TensorOpr::Transpose(C, *tensor_trans);
             }
@@ -2142,8 +2204,8 @@ DeviceTensor* GpuInferenceWorker::CreateLocalTensor(const DeviceTensor &ref_tens
     return new_tensor;
 }
 
-DeviceTensor* GpuInferenceWorker::CreateLocalTensor(ElementType etype,
-    int ne0, int ne1, int ne2, bool is_layer_local, int heap_idx)
+DeviceTensor* GpuInferenceWorker::CreateLocalTensor(ElementType etype, int ne0,
+    int ne1, int ne2, bool is_layer_local, int heap_idx, int scenario_id)
 {
     DeviceTensor *new_tensor = local_device_tensor_heap_.New(1);
     new_tensor->SetAutoFree(false);
@@ -2155,8 +2217,9 @@ DeviceTensor* GpuInferenceWorker::CreateLocalTensor(ElementType etype,
     new_tensor->data = heap.NewHalfArray(new_tensor->size);
     if (new_tensor->data == nullptr)
     {
-        LogError("Failed to allocate tensor memory (is_layer_local: %s, heap_idx: %d, size: %d*%d*%d)",
-            is_layer_local ? "Y" : "N", heap_idx, ne0, ne1, ne2);
+        LogError("%s (is_layer_local: %s, heap_idx: %d, size: %d*%d*%d, scenario: %d)",
+            "Failed to allocate tensor memory", is_layer_local ? "Y" : "N",
+            heap_idx, ne0, ne1, ne2, scenario_id);
         exit(101);
     }
 

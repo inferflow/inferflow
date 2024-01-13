@@ -50,6 +50,10 @@ public:
         return device_id_;
     }
 
+    uint64_t AuxMemorySize() const {
+        return aux_memory_size_;
+    }
+
     DeviceTensor* GetOutput() {
         return output_tensor_;
     }
@@ -83,6 +87,17 @@ protected:
     {
         vector<PairUInt32> query_list;
         DeviceTensor *tensor = nullptr;
+    };
+
+    struct AttentionParams
+    {
+        bool is_cross_attn = false;
+        int layer_idx = 0;
+        int head_num = 0;
+        int kv_head_num = 0;
+        int head_dim = 0;
+        int heads_per_kv_group = 0;
+        int heap_idx = 0;
     };
 
     struct AttentionOutput
@@ -132,6 +147,8 @@ protected:
 
     HostHalfBuffer aux_buffer_;
 
+    uint64_t aux_memory_size_ = 0;
+
     //input and output
     bool is_encoder_ = false;
     const DeviceTensor *input_tensor_ = nullptr;
@@ -168,6 +185,11 @@ protected:
         const DeviceTensor *input_q, const InputKV *input_kv,
         int heap_idx, bool is_encoder);
 
+    DeviceTensor* CalculateProductKQ(const CurQKV &cur_qkv, const QueryProcInput &query,
+        LayerKVCache &layer_kv_cache, const InputKV *input_kv, const AttentionParams &params,
+        int q_idx);
+    //void GetKFromCache(DeviceTensor &sub_k, LayerKVCache &layer_kv_cache, bool is_cross_attn);
+
     DeviceTensor* DistributeAndMergeTensors(const DeviceTensor *tensor,
         bool is_sum, int cur_phase, int next_phase, int heap_idx,
         bool is_study_mode = false);
@@ -202,8 +224,8 @@ protected:
 
     DeviceTensor* CreateLocalTensor(const DeviceTensor &ref_tensor,
         bool is_layer_local, int heap_idx);
-    DeviceTensor* CreateLocalTensor(ElementType etype, int ne0,
-        int ne1, int ne2, bool is_layer_local, int heap_idx);
+    DeviceTensor* CreateLocalTensor(ElementType etype, int ne0, int ne1, int ne2,
+        bool is_layer_local, int heap_idx, int scenario_id = 0);
     DeviceTensor* CreateTensor(ElementType etype, const DeviceTensor &ref_tensor,
         bool be_transpose = false);
 

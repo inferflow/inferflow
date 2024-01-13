@@ -133,7 +133,7 @@ bool NetworkBuilder::BuildDeviceNetwork(TransformerModel &model, const ModelSpec
 
 bool NetworkBuilder::InitDeviceNetStructure(StdNetwork &net, const ModelSpec &spec) const
 {
-    bool ret = false;
+    bool ret = true;
     int device_group_num = (int)spec.device_groups.size();
     //auto &host_net = net.host_net;
     auto &device_net = net.device_net;
@@ -375,7 +375,8 @@ bool NetworkBuilder::BuildHostNetwork_Std(TransformerModel &model, const ModelSp
         SetFeedForwardLayer(layer_ptr->ffn, model, prefix_buf);
     }
 
-    int end_layer = spec.is_eager_device_building ? spec.decoder_cpu_layer_count
+    int end_layer = spec.is_eager_device_building
+        ? min(spec.decoder_cpu_layer_count, hparams.decoder_layers)
         : hparams.decoder_layers;
     for (int layer_idx = 0; layer_idx < end_layer; layer_idx++)
     {
@@ -1555,7 +1556,8 @@ bool NetworkBuilder::CheckHostModel(const TransformerModel &model) const
     }
 
     is_encoder = false;
-    int end_layer = model.spec.is_eager_device_building ? model.spec.decoder_cpu_layer_count
+    int end_layer = model.spec.is_eager_device_building
+        ? min(model.spec.decoder_cpu_layer_count, hparams.decoder_layers)
         : hparams.decoder_layers;
     for (int layer_id = 0; ret && layer_id < end_layer; layer_id++)
     {

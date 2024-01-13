@@ -20,8 +20,13 @@ int StdDeviceNetwork::MaxTensorSize() const
     }
     if (!this->decoder_layers.empty())
     {
-        int max_decoder_tensor_size = MaxTensorSize(*decoder_layers[0]);
-        max_tensor_size = max(max_tensor_size, max_decoder_tensor_size);
+        int layer_num = (int)this->decoder_layers.size();
+        const auto *layer = decoder_layers[layer_num - 1];
+        if (layer != nullptr)
+        {
+            int max_decoder_tensor_size = MaxTensorSize(*layer);
+            max_tensor_size = max(max_tensor_size, max_decoder_tensor_size);
+        }
     }
 
     return max_tensor_size;
