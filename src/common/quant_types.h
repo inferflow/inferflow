@@ -28,6 +28,18 @@ struct BlockQ8_B32T2
 
 #define Q8B16_CAPACITY 32
 
+// 6-bit quantization with block size 64
+// Effectively 6.5 bits per item
+// (2 + 2 + 16 + 32) * 8 / 64 = 6.5
+#define Q6_B64_CAPACITY 64
+struct BlockQ6_B64T1
+{
+    uint16_t base;  //2 bytes
+    uint16_t scale; //2 bytes
+    uint8_t data_h[Q6_B64_CAPACITY / 4]; //higher 2 bits of each value
+    uint8_t data[Q6_B64_CAPACITY / 2]; //lower 4 bits of each value
+};
+
 #define Q5B32_CAPACITY 32
 struct BlockQ5_B32T1
 {

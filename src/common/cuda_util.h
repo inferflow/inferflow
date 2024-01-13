@@ -16,6 +16,8 @@ void __builtin_ia32_serialize(void);
 #endif
 #   include <cuda_runtime.h>
 #   include <cuda_fp16.h>
+#   include <mma.h>
+#   include <cuda_runtime_api.h>
 //#   include <sm_61_intrinsics.hpp>
 #ifdef __GNUC__
 #   pragma GCC diagnostic pop

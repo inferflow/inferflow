@@ -30,6 +30,26 @@ public:
     }
 
     template <typename TargetType>
+    static __host__ __device__ void DequantizeQ6_B64T1(TargetType &v1, TargetType &v2,
+        TargetType &v3, TargetType &v4, const BlockQ6_B64T1 *block, int r = 0)
+    {
+        const float scale = (float)*(half*)&block->scale;
+        const float base = (float)*(half*)&block->base;
+        const uint8_t qh = block->data_h[r];
+        const uint16_t qd = *(const uint16_t*)(block->data + 2 * r);
+
+        const int x1 = ((qd & 0x000F)      ) | ((qh & 0x03) << 4);
+        const int x2 = ((qd & 0x00F0) >>  4) | ((qh & 0x0C) << 2);
+        const int x3 = ((qd & 0x0F00) >>  8) | ((qh & 0x30)     );
+        const int x4 = ((qd & 0xF000) >> 12) | ((qh & 0xC0) >> 2);
+
+        v1 = (TargetType)(x1 * scale + base);
+        v2 = (TargetType)(x2 * scale + base);
+        v3 = (TargetType)(x3 * scale + base);
+        v4 = (TargetType)(x4 * scale + base);
+    }
+
+    template <typename TargetType>
     static __host__ __device__ void DequantizeQ5(TargetType &v1, TargetType &v2,
         const BlockQ5_B32T1 *block, int r = 0)
     {
