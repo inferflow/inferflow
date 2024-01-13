@@ -244,7 +244,7 @@ public:
         int max_k = 8;
         float top_p = 0.9f;
         int pool_size = 50;
-        int eos_bypassing_max = 2;
+        int eos_bypassing_max = 0;
     };
 
 public:
@@ -289,7 +289,7 @@ public:
         float alpha = 0.5f;
         int n = 3;
         float beta = 0.9f;
-        int eos_bypassing_max = 2;
+        int eos_bypassing_max = 0;
     };
 
 public:
@@ -331,7 +331,7 @@ public:
         float alpha = 0.5f;
         int n = 3;
         float beta = 0.9f;
-        int eos_bypassing_max = 2;
+        int eos_bypassing_max = 0;
 
         int min_k = 1;
         int max_k = 8;
@@ -379,7 +379,7 @@ public:
     {
         int pool_size = 50;
         float min_p = 0.05f;
-        int eos_bypassing_max = 2;
+        int eos_bypassing_max = 0;
     };
 
 public:
@@ -419,7 +419,7 @@ public:
     {
         int pool_size = 50;
         float z = 0.95f;
-        int eos_bypassing_max = 2;
+        int eos_bypassing_max = 0;
     };
 
 public:
@@ -459,7 +459,7 @@ public:
     {
         int pool_size = 50;
         float p = 0.95f;
-        int eos_bypassing_max = 2;
+        int eos_bypassing_max = 0;
     };
 
 public:
@@ -500,7 +500,7 @@ public:
         int pool_size = 50;
         float eta = 0.1f;
         float tau = 5.0f;
-        int eos_bypassing_max = 2;
+        int eos_bypassing_max = 0;
     };
 
 public:

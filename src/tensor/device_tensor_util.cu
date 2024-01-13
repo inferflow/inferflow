@@ -474,6 +474,25 @@ bool DeviceTensorUtil::BuildTensor_Q8_B32T2(DeviceTensor &tensor,
     return ret;
 }
 
+bool DeviceTensorUtil::BuildTensor_Q6_B64T1(DeviceTensor &tensor,
+    const vector<inferflow_fp16> &host_array, int cx, int cy, int cz)
+{
+    int blocks_per_row = cx / Q6_B64_CAPACITY;
+    vector<BlockQ6_B64T1> block_array(blocks_per_row * cy);
+    for (int row_id = 0; row_id < cy; row_id++)
+    {
+        const inferflow_fp16 *source_row = host_array.data() + row_id * cx;
+        BlockQ6_B64T1 *target_blocks = block_array.data() + row_id * blocks_per_row;
+        Quantization::QuantizeRow_Q6_B64T1<inferflow_fp16>(target_blocks,
+            blocks_per_row, source_row, cx);
+    }
+
+    tensor.New(ElementType::Q6_B64T1, cx, cy, cz);
+    int bytes = (int)(block_array.size() * sizeof(BlockQ6_B64T1));
+    bool ret = tensor.CopyFromHost(block_array.data(), bytes);
+    return ret;
+}
+
 bool DeviceTensorUtil::BuildQ5Tensor(DeviceTensor &tensor,
     const vector<inferflow_fp16> &host_array, int cx, int cy, int cz)
 {

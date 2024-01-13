@@ -25,6 +25,7 @@ bool ModelReader::Load(TransformerModel &model, TransformerContext &ctx,
 
     bool has_embedded_hparams = false;
     bool has_embedded_tokenizer_data = false;
+    bool is_llama2_c = false;
     switch (spec.model_file_format)
     {
     case ModelFileFormat::Std:
@@ -36,6 +37,7 @@ bool ModelReader::Load(TransformerModel &model, TransformerContext &ctx,
     case ModelFileFormat::LLAMA2_C:
         has_embedded_hparams = true;
         has_embedded_tokenizer_data = true;
+        is_llama2_c = true;
         break;
     default: break;
     }
@@ -59,21 +61,24 @@ bool ModelReader::Load(TransformerModel &model, TransformerContext &ctx,
     }
 
     const auto &hparams = model.spec.hyper_params;
-    if (model.spec.model_file_format != ModelFileFormat::LLAMA2_C)
+    if (!has_embedded_hparams)
     {
         network_builder_->InitNetworkStructure(model.std_network, model.spec);
     }
 
-    model.network.Init(model.spec.network_structure, hparams.encoder_layers,
-        hparams.decoder_layers, model.spec.tensor_name_prefix,
-        &model.spec.tensor_name_map);
+    if (!has_embedded_hparams || is_llama2_c)
+    {
+        model.network.Init(model.spec.network_structure, hparams.encoder_layers,
+            hparams.decoder_layers, model.spec.tensor_name_prefix,
+            &model.spec.tensor_name_map);
+    }
 
     model.spec.is_eager_device_building = false;
     NetworkType net_type = model.spec.network_structure;
     bool is_decoder_only = NetworkStructure::IsDecoderOnlyTransformer(net_type);
     if (is_decoder_only && model.spec.multi_gpu_strategy == MultiGpuStrategy::BY_LAYER
         && (int)model.spec.device_groups.size() == 1
-        && model.spec.model_file_format != ModelFileFormat::LLAMA2_C)
+        && !has_embedded_hparams)
     {
         model.spec.is_eager_device_building = true;
     }
@@ -137,6 +142,14 @@ bool ModelReader::Load(TransformerModel &model, TransformerContext &ctx,
     default:
         ret = LoadModel_Std(model, ctx, spec, is_study_mode);
         break;
+    }
+
+    if (has_embedded_hparams && !is_llama2_c)
+    {
+        network_builder_->InitNetworkStructure(model.std_network, model.spec);
+        model.network.Init(model.spec.network_structure, hparams.encoder_layers,
+            hparams.decoder_layers, model.spec.tensor_name_prefix,
+            &model.spec.tensor_name_map);
     }
 
     model.network.UpdateTensorSpecTable(model.tensor_spec_table);
@@ -1622,7 +1635,7 @@ bool ModelReader::LoadModel_Pickle(TransformerModel &model, TransformerContext &
         string file_path = spec.dir + file_name;
 
         BinaryFileStream strm;
-        //strm.SetRdBufferSize(64 * 1024 * 1024);
+        strm.SetRdBufferSize(4096);
         ret = strm.OpenForRead(file_path);
         Macro_RetxFalseIf(!ret, LogError("Failed to open the model file"));
 
@@ -1932,7 +1945,7 @@ int ModelReader::Pickle_ReadTensor(TransformerModel &model, TransformerContext &
             TensorNameInfo tni;
             bool is_succ = NetworkBuilder::ParseTensorName(tni, norm_tensor_name,
                 model.std_network.device_net, model.spec);
-            if (is_succ)
+            if (is_succ && tni.layer_id >= model.spec.decoder_cpu_layer_count)
             {
                 HostTensor cpu_tensor;
                 ret = ReadAndTransTensor(cpu_tensor, tensor_spec, ctx, strm);
@@ -2158,7 +2171,7 @@ bool ModelReader::Safetensors_ReadTensors(TransformerModel &model,
                 TensorNameInfo tni;
                 bool is_succ = NetworkBuilder::ParseTensorName(tni, norm_tensor_name,
                     model.std_network.device_net, model.spec);
-                if (is_succ)
+                if (is_succ && tni.layer_id >= model.spec.decoder_cpu_layer_count)
                 {
                     HostTensor cpu_tensor;
                     ret = ReadAndTransTensor(cpu_tensor, tensor_spec, ctx, strm);

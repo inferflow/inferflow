@@ -40,6 +40,8 @@ public:
         int cx, int cy, int cz);
     static bool BuildTensor_Q8_B32T2(DeviceTensor &tensor, const vector<inferflow_fp16> &host_array,
         int cx, int cy, int cz);
+    static bool BuildTensor_Q6_B64T1(DeviceTensor &tensor, const vector<inferflow_fp16> &host_array,
+        int cx, int cy, int cz);
     static bool BuildQ5Tensor(DeviceTensor &tensor, const vector<inferflow_fp16> &host_array,
         int cx, int cy, int cz);
     static bool BuildQ4B16Tensor(DeviceTensor &tensor, const vector<inferflow_fp16> &host_array,

@@ -1,6 +1,7 @@
 #include "kv_cache.h"
-#include "sslib/log.h"
 #include <algorithm>
+#include "sslib/log.h"
+#include "tensor/tensor_opr.h"
 
 INFER_FLOW_BEGIN
 TRANSFORMER_BEGIN
@@ -102,30 +103,63 @@ bool GpuLayerKVCache::Init(ElementType etype, int max_context_len, int dim)
 
 bool GpuLayerKVCache::GetKRows(DeviceTensor &rows, int context_len, int token_num)
 {
-    rows.data_type = k_data_.data_type;
-    rows.SetStructure(k_data_.ne[0], token_num);
-    rows.data = k_data_.RowData(context_len);
-    rows.SetAutoFree(false);
-    return true;
+    bool ret = true;
+    if (rows.data_type == k_data_.data_type)
+    {
+        rows.data_type = k_data_.data_type;
+        rows.SetStructure(k_data_.ne[0], token_num);
+        rows.data = k_data_.RowData(context_len);
+        rows.SetAutoFree(false);
+        return ret;
+    }
+
+    if (rows.data_type == ElementType::F16 && k_data_.data_type == ElementType::Q8_B32T2)
+    {
+        DeviceTensor src_tensor(false);
+        src_tensor.data_type = k_data_.data_type;
+        src_tensor.data = k_data_.RowData(context_len);
+        src_tensor.SetStructure(k_data_.ne[0], token_num);
+
+        rows.SetStructure(k_data_.ne[0], token_num);
+        ret = TensorOpr::Dequantize(rows, src_tensor);
+        return ret;
+    }
+
+    //return false in other cases
+    return false;
 }
 
 bool GpuLayerKVCache::GetVRows(DeviceTensor &rows, int context_len, int token_num)
 {
-    rows.data_type = k_data_.data_type;
-    rows.SetStructure(v_data_.ne[0], token_num);
-    rows.data = v_data_.RowData(context_len);
-    rows.SetAutoFree(false);
-    return true;
+    bool ret = true;
+    if (rows.data_type == v_data_.data_type)
+    {
+        rows.data_type = v_data_.data_type;
+        rows.SetStructure(v_data_.ne[0], token_num);
+        rows.data = v_data_.RowData(context_len);
+        rows.SetAutoFree(false);
+    }
+
+    if (rows.data_type == ElementType::F16 && v_data_.data_type == ElementType::Q8_B32T2)
+    {
+        DeviceTensor src_tensor(false);
+        src_tensor.data_type = v_data_.data_type;
+        src_tensor.data = v_data_.RowData(context_len);
+        src_tensor.SetStructure(v_data_.ne[0], token_num);
+
+        rows.SetStructure(v_data_.ne[0], token_num);
+        ret = TensorOpr::Dequantize(rows, src_tensor);
+        return ret;
+    }
+
+    //return false in other cases
+    return false;
 }
 
 bool GpuLayerKVCache::SetKRows(const DeviceTensor &rows, int start_row,
     int prefix_len, int token_num)
 {
-    if (rows.data_type != k_data_.data_type) {
-        LogError("Inconsistent data type: %d vs. %d", rows.data_type, k_data_.data_type);
-        return false;
-    }
-
+    bool ret = true;
     if (rows.ne[0] != k_data_.ne[0]) {
         LogError("Inconsistent column count: %d vs. %d", rows.ne[0], k_data_.ne[0]);
         return false;
@@ -135,6 +169,28 @@ bool GpuLayerKVCache::SetKRows(const DeviceTensor &rows, int start_row,
     int byte_num = element_size * k_data_.ne[0] * token_num;
     const void *source_data = rows.RowData(start_row);
     void *target_data = k_data_.RowData(prefix_len);
+
+    if (rows.data_type == ElementType::F16 && k_data_.data_type == ElementType::Q8_B32T2)
+    {
+        DeviceTensor src_tensor(false);
+        src_tensor.data_type = rows.data_type;
+        src_tensor.data = (void*)source_data;
+        src_tensor.SetStructure(rows.ne[0], token_num);
+
+        DeviceTensor target_tensor(false);
+        target_tensor.data_type = k_data_.data_type;
+        target_tensor.data = target_data;
+        target_tensor.SetStructure(k_data_.ne[0], token_num);
+
+        ret = TensorOpr::Quantize(target_tensor, src_tensor);
+        return ret;
+    }
+
+    if (rows.data_type != k_data_.data_type) {
+        LogError("Inconsistent data type: %d vs. %d", rows.data_type, k_data_.data_type);
+        return false;
+    }
+
     auto ret_code = cudaMemcpy(target_data, source_data, byte_num, cudaMemcpyDeviceToDevice);
     if (ret_code != cudaSuccess)
     {
@@ -143,17 +199,13 @@ bool GpuLayerKVCache::SetKRows(const DeviceTensor &rows, int start_row,
         return false;
     }
 
-    return true;
+    return ret;
 }
 
 bool GpuLayerKVCache::SetVRows(const DeviceTensor &rows, int start_row,
     int prefix_len, int token_num)
 {
-    if (rows.data_type != v_data_.data_type) {
-        LogError("Inconsistent data type: %d vs. %d", rows.data_type, v_data_.data_type);
-        return false;
-    }
-
+    bool ret = true;
     if (rows.ne[0] != v_data_.ne[0]) {
         LogError("Inconsistent column count: %d vs. %d", rows.ne[0], v_data_.ne[0]);
         return false;
@@ -163,6 +215,28 @@ bool GpuLayerKVCache::SetVRows(const DeviceTensor &rows, int start_row,
     int byte_num = element_size * v_data_.ne[0] * token_num;
     const void *source_data = rows.RowData(start_row);
     void *target_data = v_data_.RowData(prefix_len);
+
+    if (rows.data_type == ElementType::F16 && v_data_.data_type == ElementType::Q8_B32T2)
+    {
+        DeviceTensor src_tensor(false);
+        src_tensor.data_type = rows.data_type;
+        src_tensor.data = (void*)source_data;
+        src_tensor.SetStructure(rows.ne[0], token_num);
+
+        DeviceTensor target_tensor(false);
+        target_tensor.data_type = v_data_.data_type;
+        target_tensor.data = target_data;
+        target_tensor.SetStructure(v_data_.ne[0], token_num);
+
+        ret = TensorOpr::Quantize(target_tensor, src_tensor);
+        return ret;
+    }
+
+    if (rows.data_type != v_data_.data_type) {
+        LogError("Inconsistent data type: %d vs. %d", rows.data_type, v_data_.data_type);
+        return false;
+    }
+
     auto ret_code = cudaMemcpy(target_data, source_data, byte_num, cudaMemcpyDeviceToDevice);
     if (ret_code != cudaSuccess)
     {
@@ -171,7 +245,7 @@ bool GpuLayerKVCache::SetVRows(const DeviceTensor &rows, int start_row,
         return false;
     }
 
-    return true;
+    return ret;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -219,24 +293,25 @@ bool KVCache::Init(ElementType etype, int max_context_len, int dim,
         LayerKVCache *layer_ptr = nullptr;
         if (layer_id % m == r)
         {
-            if (layer_id - start_layer < gpu_layer_num) {
+            if (layer_id - start_layer < gpu_layer_num)
+            {
                 layer_ptr = new GpuLayerKVCache;
+                ret = layer_ptr->Init(etype, max_context_len, dim);
                 real_gpu_layer_num++;
             }
-            else {
+            else
+            {
                 layer_ptr = new CpuLayerKVCache;
+                ret = layer_ptr->Init(ElementType::F16, max_context_len, dim);
                 real_cpu_layer_num++;
             }
         }
 
-        if (layer_ptr != nullptr) {
-            ret = layer_ptr->Init(etype, max_context_len, dim);
-        }
         layer_map_[layer_id] = layer_ptr;
     }
 
-    int element_size = TensorCommon::ElementSize(etype);
-    float mb_per_layer = 2.0f * max_context_len * dim * element_size / 1024 / 1024;
+    uint64_t bytes = TensorCommon::ByteCount(etype, max_context_len * dim);
+    float mb_per_layer = 2.0f * bytes / 1024 / 1024;
     host_memory_cost_mb_ = mb_per_layer * real_cpu_layer_num;
     device_memory_cost_mb_ = mb_per_layer * real_gpu_layer_num;
 
@@ -272,4 +347,3 @@ float KVCache::HostMemoryCost() const
 
 TRANSFORMER_END
 INFER_FLOW_END
-

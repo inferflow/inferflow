@@ -63,6 +63,8 @@ public:
 #endif //USE_CUDA
 
 #if defined(USE_CUDA)
+    bool InitDeviceNetStructure(StdNetwork &net, const ModelSpec &spec) const;
+
     bool BuildDeviceNetwork(TransformerModel &model, const ModelSpec &spec,
         const ModelPartition &model_partition, int builder_count);
 
@@ -151,8 +153,6 @@ protected:
 
 protected:
 #if defined(USE_CUDA)
-    bool InitDeviceNetStructure(StdNetwork &net, const ModelSpec &spec) const;
-
     bool BuildDeviceNetwork_ByLayer(StdDeviceNetwork &device_net,
         TransformerModel &model, const StdHostNetwork &host_net,
         int builder_count);

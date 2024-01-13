@@ -153,6 +153,21 @@ bool Quantization::DequantizeRow_Q8_B32T2(float *target,
     return true;
 }
 
+bool Quantization::DequantizeRow_Q6_B64T1(float * target,
+    const BlockQ6_B64T1 *blocks, uint64_t block_count)
+{
+    if (target == nullptr || blocks == nullptr) {
+        return false;
+    }
+
+    for (uint64_t idx = 0; idx < block_count; idx++)
+    {
+        DequantizeQ6_B64T1(target + idx * Q6_B64_CAPACITY, blocks + idx);
+    }
+
+    return true;
+}
+
 //static
 bool Quantization::DequantizeRow_Q5(float *target, const BlockQ5_B32T1 *blocks, uint64_t block_count)
 {

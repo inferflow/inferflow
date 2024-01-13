@@ -101,8 +101,9 @@ void DecodingStrategies::InitStrategyMap(DecodingStrategyMap &the_map)
     the_map["top_p"] = SamplingStrategyId::TopP;
     the_map["sample.top_p"] = SamplingStrategyId::TopP;
     the_map["fsd"] = SamplingStrategyId::FSD;
-    the_map["randomfsd"] = SamplingStrategyId::RandomizedFSD;
-    the_map["sample.fsd"] = SamplingStrategyId::RandomizedFSD;
+    the_map["sample.fsd"] = SamplingStrategyId::FSD;
+    the_map["random_fsd"] = SamplingStrategyId::RandomizedFSD;
+    the_map["sample.random_fsd"] = SamplingStrategyId::RandomizedFSD;
 
     the_map["min_p"] = SamplingStrategyId::MinP;
     the_map["tfs"] = SamplingStrategyId::TFS;

@@ -378,6 +378,9 @@ bool DeviceTensorBuilder::Build_Quant(DeviceTensorEx &target, const HostTensor &
     case ElementType::Q8_LOG:
         ret = Build_Q8_Log(target, host_array, cx_new, cy_new, cz);
         break;
+    case ElementType::Q6_B64T1:
+        ret = DeviceTensorUtil::BuildTensor_Q6_B64T1(*target.tensor, host_array, cx_new, cy_new, cz);
+        break;
     case ElementType::Q5:
         ret = DeviceTensorUtil::BuildQ5Tensor(*target.tensor, host_array, cx_new, cy_new, cz);
         break;

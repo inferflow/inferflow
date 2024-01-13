@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="tensor">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="common">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="transformer">
+      <UniqueIdentifier>{376980fe-62be-4911-b542-df7c717b4ff6}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\src\common\pickle_reader.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\common\quant_types.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\common\quantization.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\common\std_vocabulary.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\common\text_tokenizer.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\tensor\host_float_buffer.h">
+      <Filter>tensor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\tensor\host_tensor.h">
+      <Filter>tensor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\tensor\parallel_gemm.h">
+      <Filter>tensor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\tensor\tensor_common.h">
+      <Filter>tensor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\tensor\tensor_helper.h">
+      <Filter>tensor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\tensor\tensor_util.h">
+      <Filter>tensor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\transformer\inference_engine.h">
+      <Filter>transformer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\transformer\inference_types.h">
+      <Filter>transformer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\transformer\model.h">
+      <Filter>transformer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\transformer\model_reader.h">
+      <Filter>transformer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\transformer\model_writer.h">
+      <Filter>transformer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\transformer\network_builder.h">
+      <Filter>transformer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\transformer\network_structure.h">
+      <Filter>transformer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\transformer\query_state_table.h">
+      <Filter>transformer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\transformer\sampling_strategy.h">
+      <Filter>transformer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\transformer\transformer_types.h">
+      <Filter>transformer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\tensor\host_tensor_opr.h">
+      <Filter>tensor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\common\data_types.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\transformer\decoding_strategies.h">
+      <Filter>transformer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\transformer\cpu_inference_worker.h">
+      <Filter>transformer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\transformer\cpu_kv_cache.h">
+      <Filter>transformer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\transformer\service_data.h">
+      <Filter>transformer</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\src\common\pickle_reader.cc">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\common\quantization.cc">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\common\text_tokenizer.cc">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\tensor\host_tensor.cc">
+      <Filter>tensor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\tensor\tensor_common.cc">
+      <Filter>tensor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\tensor\tensor_util.cc">
+      <Filter>tensor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\transformer\inference_engine.cc">
+      <Filter>transformer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\transformer\model_reader.cc">
+      <Filter>transformer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\transformer\model_writer.cc">
+      <Filter>transformer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\transformer\network_builder.cc">
+      <Filter>transformer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\transformer\network_structure.cc">
+      <Filter>transformer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\transformer\query_state_table.cc">
+      <Filter>transformer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\transformer\sampling_strategy.cc">
+      <Filter>transformer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\common\std_vocabulary.cc">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\tensor\host_tensor_opr.cc">
+      <Filter>tensor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\transformer\model.cc">
+      <Filter>transformer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\transformer\decoding_strategies.cc">
+      <Filter>transformer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\transformer\cpu_inference_worker.cc">
+      <Filter>transformer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\transformer\cpu_kv_cache.cc">
+      <Filter>transformer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\tensor\host_float_buffer.cc">
+      <Filter>tensor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\transformer\service_data.cc">
+      <Filter>transformer</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

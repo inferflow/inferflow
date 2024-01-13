@@ -49,6 +49,10 @@ public:
         const DeviceTensor &B, float alpha, float beta,
         bool is_b_column_major, bool is_sub_level = false);
 
+    static bool Gemm_Bruce(DeviceTensor &C, const DeviceTensor &A,
+        const DeviceTensor &B, float alpha, float beta,
+        bool is_b_column_major, bool is_sub_level = false);
+
     static bool GemmSparse(DeviceTensor &C, const DeviceTensor &A,
         const DeviceSparseMatrix &B, float alpha, float beta);
 
@@ -79,6 +83,8 @@ protected:
     static bool Gemv_AX_Q8_B32T1(DeviceTensor &Y, const DeviceTensor &A,
         const DeviceTensor &X);
     static bool Gemv_AX_Q8_B32T2(DeviceTensor &Y, const DeviceTensor &A,
+        const DeviceTensor &X);
+    static bool Gemv_AX_Q6_B64T1(DeviceTensor &Y, const DeviceTensor &A,
         const DeviceTensor &X);
     static bool Gemv_AX_Q5(DeviceTensor &Y, const DeviceTensor &A,
         const DeviceTensor &X);

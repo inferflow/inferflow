@@ -153,6 +153,7 @@ protected:
 protected:
     static bool QuantizeQ8_B32T1(DeviceTensor &B, const DeviceTensor &A, int alg_id = 0);
     static bool QuantizeQ8_B32T2(DeviceTensor &B, const DeviceTensor &A, int alg_id = 0);
+    static bool QuantizeQ6_B64T1(DeviceTensor &B, const DeviceTensor &A);
     static bool QuantizeQ5(DeviceTensor &B, const DeviceTensor &A);
     static bool QuantizeQ4B16(DeviceTensor &B, const DeviceTensor &A);
     static bool QuantizeQ4_B32T1(DeviceTensor &B, const DeviceTensor &A);
@@ -162,6 +163,7 @@ protected:
 
     static bool DequantizeQ8_B32T1(DeviceTensor &B, const DeviceTensor &A);
     static bool DequantizeQ8_B32T2(DeviceTensor &B, const DeviceTensor &A);
+    static bool DequantizeQ6_B64T1(DeviceTensor &B, const DeviceTensor &A);
     static bool DequantizeQ5(DeviceTensor &B, const DeviceTensor &A,
         bool be_transpose = false, int alg_id = 0);
     static bool DequantizeQ4B16(DeviceTensor &B, const DeviceTensor &A);

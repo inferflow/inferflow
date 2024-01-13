@@ -51,7 +51,7 @@ bool InferenceEngine::Init(const InferenceConfig &cfg)
     config_.max_concurrent_queries = min(cfg.max_concurrent_queries,
         1 + QueryState::MAX_PROC_ID);
     config_ex_.is_gpu_tensor_row_major = false;
-    //config_ex_.matrix_mul_alg = MatrixMulAlg::Alg2;
+    //config_ex_.matrix_mul_alg = MatrixMulAlg::Bruce;
     config_ex_.gemv_alg = VectorMatrixMulAlg::Alg3;
     config_ex_.enable_full_quant_gemv = true;
 
@@ -1041,7 +1041,7 @@ bool InferenceEngine::GetLocalInput(LocalInput &input, vector<int> &saturated_qu
 
     map<int, const QueryState*> query_map;
     int max_query_num = -1;
-    int max_token_num = 64;
+    int max_token_num = 256;
     query_state_lock_.lock(); //lock
     query_state_table_.Get(query_map, net_type, model.spec.max_context_len,
         max_query_num, max_token_num);
@@ -1602,7 +1602,10 @@ bool InferenceEngine::LoadModelSpec(ModelSpec &spec, const ConfigData &cfg_data,
             LogError("Invalid device_weight_data_type for model %s", spec.sid.c_str());
             return false;
         }
-        spec.device_weight_data_type = iter->second;
+
+        int element_size = TensorCommon::ElementSize(iter->second);
+        spec.device_weight_data_type = element_size >= 2
+            ? ElementType::F16 : iter->second;
     }
 
     str.clear();
@@ -1615,7 +1618,10 @@ bool InferenceEngine::LoadModelSpec(ModelSpec &spec, const ConfigData &cfg_data,
             LogError("Invalid device_kv_cache_data_type for model %s", spec.sid.c_str());
             return false;
         }
-        spec.device_kv_cache_data_type = iter->second;
+
+        int element_size = TensorCommon::ElementSize(iter->second);
+        spec.device_kv_cache_data_type = element_size >= 2
+            ? ElementType::F16 : ElementType::Q8_B32T2;
     }
 
     cfg_data.GetItem(section, "tensor_quant_threshold", spec.tensor_quant_threshold, false);
@@ -1778,6 +1784,12 @@ bool InferenceEngine::BuildGpuLayers(const ModelSpec &model_spec,
     int builder_count = 4;
     auto &model = model_;
 
+    if (model_spec.model_file_format == ModelFileFormat::LLAMA2_C)
+    {
+        ret = network_builder_.InitDeviceNetStructure(model.std_network, model_spec);
+        Macro_RetxFalseIf(!ret, LogError("Failed to initialize the device net structure"));
+    }
+
     ret = network_builder_.BuildDeviceNetwork(model, model_spec,
         model_partition, builder_count);
     Macro_RetFalseIf(!ret);
@@ -1835,6 +1847,7 @@ bool InferenceEngine::CreateGpuWorkers(const ModelSpec &model_spec,
         return false;
     }
 
+    uint64_t aux_mem_usage = 0;
     bool is_by_layer = model_spec.multi_gpu_strategy == MultiGpuStrategy::BY_LAYER;
     LayerRange encoder_layer_range, decoder_layer_range;
     encoder_layer_range.layer_num = model_spec.hyper_params.encoder_layers;
@@ -1878,8 +1891,12 @@ bool InferenceEngine::CreateGpuWorkers(const ModelSpec &model_spec,
                 config_, config_ex_, model_, device_id,
                 encoder_layer_range, decoder_layer_range,
                 is_by_layer);
+            aux_mem_usage += worker_ptr->AuxMemorySize();
         }
     } //for each group
+
+    LogKeyInfo("Auxiliary memory usage of GPU inference workers: %.2f GB",
+        aux_mem_usage / 1024.0f / 1024 /  1024);
 
     return ret;
 }

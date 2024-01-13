@@ -109,12 +109,12 @@ struct ModelSpec
     ElementType host_weight_data_type = ElementType::F16;
     float delta_tensor_ratio = 0;
     int tensor_quant_threshold = 2000 * 2000;
-    ElementType kv_cache_data_type = ElementType::F16;
     int host_kv_cache_percent = 0; //[0, 100]
     bool has_cross_attn_kv_cache = true;
 
     static const int DEFAULT_MAX_CONTEXT_LEN = 1024;
     int max_context_len = -1;
+    int max_input_len = 1024;
 
     MultiGpuStrategy multi_gpu_strategy = MultiGpuStrategy::BY_LAYER;
     vector<vector<int>> device_groups;
