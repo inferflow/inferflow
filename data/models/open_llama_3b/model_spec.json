@@ -1,0 +1,25 @@
+{
+    "config_file": "config.json",
+    "model_files": ["pytorch_model.bin"],
+    "model_file_format": "pickle",
+
+    "tokenizer_file": "tokenizer.model",
+    "tokenization_algorithm": "bpe",
+    "generation_config": "generation_config.json",
+
+    "network_structure":
+    {
+        "type": "transformer.llama",
+        "normalization_function": "rms",
+        "activation_function": "silu",
+        "position_embedding": "rope",
+
+        "qk_column_order": 2,
+        "qkv_format": 1,
+
+        "tensor_name_prefix": "model.",
+        "tensor_name_mapping":
+        {
+        }
+    }
+}

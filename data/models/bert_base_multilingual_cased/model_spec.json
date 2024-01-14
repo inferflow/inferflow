@@ -1,0 +1,56 @@
+################################################################################
+# Please refer to docs/model_setup.md for instructions about editing model_spec.json.
+################################################################################
+
+{
+    "config_file": "config.json",
+    "model_files": ["model.safetensors"],
+    "model_file_format": "safetensors",
+
+    "tokenizer_files": ["tokenizer.json"],
+    "tokenization_algorithm": "fmm",
+    "generation_config": "",
+
+    "network_structure":
+    {
+        "type": "transformer.encoder_only",
+        "normalization_function": "std",
+        "activation_function": "gelu",
+        "position_embedding": "empty",
+
+        "qk_column_order": 2,
+        "qkv_format": 1,
+        "normalize_lm_head": false,
+
+        "tensor_name_prefix": "bert.",
+        "tensor_name_mapping":
+        {
+            "embeddings.word_embeddings.weight": "enc.token_embeddings.weight",
+            "embeddings.position_embeddings.weight": "enc.pos_embeddings.weight", 
+            "embeddings.token_type_embeddings.weight": "enc.token_type_embeddings.weight",
+            "embeddings.LayerNorm.gamma": "enc.input_norm.weight",
+            "embeddings.LayerNorm.beta": "enc.input_norm.bias",
+            "encoder.layer.{i}.attention.self.query.weight": "enc.{i}.self_attn.wq.weight",
+            "encoder.layer.{i}.attention.self.query.bias": "enc.{i}.self_attn.wq.bias",
+            "encoder.layer.{i}.attention.self.key.weight": "enc.{i}.self_attn.wk.weight",
+            "encoder.layer.{i}.attention.self.key.bias": "enc.{i}.self_attn.wk.bias",
+            "encoder.layer.{i}.attention.self.value.weight": "enc.{i}.self_attn.wv.weight",
+            "encoder.layer.{i}.attention.self.value.bias": "enc.{i}.self_attn.wv.bias",
+            "encoder.layer.{i}.attention.output.dense.weight": "enc.{i}.self_attn.wo.weight",
+            "encoder.layer.{i}.attention.output.dense.bias": "enc.{i}.self_attn.wo.bias",
+            "encoder.layer.{i}.attention.output.LayerNorm.gamma": "enc.{i}.self_attn.post_norm.weight",
+            "encoder.layer.{i}.attention.output.LayerNorm.beta": "enc.{i}.self_attn.post_norm.bias",
+            "encoder.layer.{i}.intermediate.dense.weight": "enc.{i}.feed_forward.w1.weight",
+            "encoder.layer.{i}.intermediate.dense.bias": "enc.{i}.feed_forward.w1.bias",
+            "encoder.layer.{i}.output.dense.weight": "enc.{i}.feed_forward.w2.weight",
+            "encoder.layer.{i}.output.dense.bias": "enc.{i}.feed_forward.w2.bias",
+            "encoder.layer.{i}.output.LayerNorm.gamma": "enc.{i}.feed_forward.post_norm.weight",
+            "encoder.layer.{i}.output.LayerNorm.beta": "enc.{i}.feed_forward.post_norm.bias",
+            "cls.predictions.transform.dense.weight": "output_transform.weight",
+            "cls.predictions.transform.dense.bias": "output_transform.bias",
+            "cls.predictions.transform.LayerNorm.gamma": "output_transform.post_norm.weight",
+            "cls.predictions.transform.LayerNorm.beta": "output_transform.post_norm.bias",
+            "cls.predictions.bias": "enc.output.bias"
+        }
+    }
+}

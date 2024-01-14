@@ -1,0 +1,45 @@
+{
+    "config_file": "config.json",
+    "model_files":
+    [
+      "model.safetensors.index.json",
+      "model-00001-of-00015.safetensors",
+      "model-00002-of-00015.safetensors",
+      "model-00003-of-00015.safetensors",
+      "model-00004-of-00015.safetensors",
+      "model-00005-of-00015.safetensors",
+      "model-00006-of-00015.safetensors",
+      "model-00007-of-00015.safetensors",
+      "model-00008-of-00015.safetensors",
+      "model-00009-of-00015.safetensors",
+      "model-00010-of-00015.safetensors",
+      "model-00011-of-00015.safetensors",
+      "model-00012-of-00015.safetensors",
+      "model-00013-of-00015.safetensors",
+      "model-00014-of-00015.safetensors",
+      "model-00015-of-00015.safetensors"
+    ],
+    "model_file_format": "safetensors",
+
+    "tokenizer_file": "tokenizer.model",
+    "tokenization_algorithm": "bpe",
+    "generation_config": "generation_config.json",
+
+    "network_structure":
+    {
+        "type": "transformer.decoder_only",
+        "normalization_function": "rms",
+        "activation_function": "silu",
+        "position_embedding": "rope",
+
+        "qk_column_order": 2,
+        "qkv_format": 1,
+
+        "tensor_name_prefix": "model.",
+        "tensor_name_mapping":
+        {
+            "embed_tokens.weight": "dec.token_embeddings.weight",
+            "norm.weight": "dec.output_norm.weight"
+        }
+    }
+}

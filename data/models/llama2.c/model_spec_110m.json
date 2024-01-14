@@ -1,0 +1,26 @@
+{
+    "config_file": "",
+    "model_files": ["stories110M.bin"],
+    "model_file_format": "llama2.c",
+
+    "tokenizer_file": "tokenizer.bin",
+    "tokenization_algorithm": "bpe",
+    "generation_config": "",
+    
+    "qkv_format": 1,
+
+    "network_structure":
+    {
+        "type": "transformer.llama",
+        "normalization_function": "rms",
+        "activation_function": "silu",
+        "position_embedding": "rope",
+
+        "qk_column_order": 0,
+
+        "tensor_name_prefix": "",
+        "tensor_name_mapping":
+        {
+        }
+    }
+}

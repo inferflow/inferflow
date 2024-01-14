@@ -1,0 +1,31 @@
+{
+    "config_file": "config.json",
+    "model_files":
+    [
+        "pytorch_model.bin.index.json",
+        "pytorch_model-00001-of-00003.bin",
+        "pytorch_model-00002-of-00003.bin",
+        "pytorch_model-00003-of-00003.bin"
+    ],
+    "model_file_format": "pickle",
+
+    "tokenizer_files": ["tokenizer.json", "special_tokens_map.json"],
+    "tokenization_algorithm": "bpe",
+    "generation_config": "generation_config.json",
+
+    "network_structure":
+    {
+        "type": "transformer.decoder_only",
+        "normalization_function": "rms",
+        "activation_function": "silu",
+        "position_embedding": "rope",
+
+        "qk_column_order": 2,
+
+        "tensor_name_prefix": "model.",
+        "tensor_name_mapping":
+        {
+            "norm.weight": "dec.output_norm.weight"
+        }
+    }
+}
