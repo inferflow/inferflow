@@ -1,0 +1,34 @@
+{
+    "config_file": "",
+    "model_files": ["llama-2-7b-chat.Q8_0.gguf"],
+    "model_file_format": "gguf",
+
+    "tokenizer_file": "",
+    "tokenization_algorithm": "bpe",
+    "generation_config": "",
+
+    "network_structure":
+    {
+        "type": "transformer.llama",
+        "normalization_function": "rms",
+        "activation_function": "silu",
+        "position_embedding": "rope",
+
+        "qk_column_order": 1,
+        "qkv_format": 0,
+
+        "tensor_name_prefix": "blk.",
+        "tensor_name_mapping":
+        {
+            "{i}.attn_norm.weight": "dec.{i}.self_attn.pre_norm.weight",
+            "{i}.attn_q.weight": "dec.{i}.self_attn.wq.weight",
+            "{i}.attn_k.weight": "dec.{i}.self_attn.wk.weight",
+            "{i}.attn_v.weight": "dec.{i}.self_attn.wv.weight",
+            "{i}.attn_output.weight": "dec.{i}.self_attn.wo.weight",
+            "{i}.ffn_norm.weight": "dec.{i}.feed_forward.pre_norm.weight",
+            "{i}.ffn_gate.weight": "dec.{i}.feed_forward.w1.weight",
+            "{i}.ffn_down.weight": "dec.{i}.feed_forward.w2.weight",
+            "{i}.ffn_up.weight": "dec.{i}.feed_forward.w3.weight"
+        }
+    }
+}

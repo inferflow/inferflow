@@ -1,0 +1,32 @@
+{
+    "config_file": "config.json",
+    "model_files":
+    [
+      "model.safetensors.index.json",
+      "model-00001-of-00002.safetensors",
+      "model-00002-of-00002.safetensors"
+    ],
+    "model_file_format": "safetensors",
+
+    "tokenizer_file": "tokenizer.json",
+    "tokenization_algorithm": "bpe",
+    "generation_config": "generation_config.json",
+
+    "network_structure":
+    {
+        "type": "transformer.decoder_only",
+        "normalization_function": "rms",
+        "activation_function": "silu",
+        "position_embedding": "rope",
+
+        "qk_column_order": 2,
+        "qkv_format": 1,
+
+        "tensor_name_prefix": "model.",
+        "tensor_name_mapping":
+        {
+            "embed_tokens.weight": "dec.token_embeddings.weight",
+            "norm.weight": "dec.output_norm.weight"
+        }
+    }
+}

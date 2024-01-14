@@ -1,0 +1,23 @@
+{
+    "config_file": "config.json",
+    "model_files": ["pytorch_model.bin"],
+    "model_file_format": "pickle",
+
+    "tokenizer_file": "tokenizer.json",
+    "tokenization_algorithm": "bpe",
+    "token_bytes_mapping": 1,
+    "generation_config": "",
+
+    "network_structure":
+    {
+        "type": "transformer.bloom",
+        "normalization_function": "std",
+        "activation_function": "gelu",
+        "position_embedding": "alibi",
+
+        "tensor_name_prefix": "",
+        "tensor_name_mapping":
+        {
+        }
+    }
+}

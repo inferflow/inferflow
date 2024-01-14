@@ -1,0 +1,46 @@
+################################################################################
+# Please refer to docs/model_setup.md for instructions about editing model_spec.json.
+################################################################################
+
+{
+    "config_file": "config.json",
+    "model_files": ["pytorch_model.bin"],
+    "model_file_format": "pickle",
+
+    "tokenizer_files": ["vocab.json", "special_tokens_map.json"],
+    "tokenization_algorithm": "bpe",
+    "generation_config": "generation_config.json",
+
+    "network_structure":
+    {
+        "type": "transformer.encoder_decoder",
+        "normalization_function": "std",
+        "activation_function": "relu",
+        "position_embedding": "sinusoidal2",
+
+        "qk_column_order": 2,
+        "qkv_format": 1,
+        "normalize_lm_head": false,
+
+        "tensor_name_prefix": "model.",
+        "tensor_name_mapping":
+        {
+            "encoder.layers.{i}.final_layer_norm.weight": "enc.{i}.feed_forward.pre_norm.weight",
+            "encoder.layers.{i}.final_layer_norm.bias": "enc.{i}.feed_forward.pre_norm.bias",
+            "encoder.layers.{i}.fc1.weight": "enc.{i}.feed_forward.w1.weight",
+            "encoder.layers.{i}.fc1.bias": "enc.{i}.feed_forward.w1.bias",
+            "encoder.layers.{i}.fc2.weight": "enc.{i}.feed_forward.w2.weight",
+            "encoder.layers.{i}.fc2.bias": "enc.{i}.feed_forward.w2.bias",
+            "encoder.layer_norm.weight": "enc.output_norm.weight",
+            "encoder.layer_norm.bias": "enc.output_norm.bias",
+            "decoder.layers.{i}.final_layer_norm.weight": "dec.{i}.feed_forward.pre_norm.weight",
+            "decoder.layers.{i}.final_layer_norm.bias": "dec.{i}.feed_forward.pre_norm.bias",
+            "decoder.layers.{i}.fc1.weight": "dec.{i}.feed_forward.w1.weight",
+            "decoder.layers.{i}.fc1.bias": "dec.{i}.feed_forward.w1.bias",
+            "decoder.layers.{i}.fc2.weight": "dec.{i}.feed_forward.w2.weight",
+            "decoder.layers.{i}.fc2.bias": "dec.{i}.feed_forward.w2.bias",
+            "decoder.layer_norm.weight": "dec.output_norm.weight",
+            "decoder.layer_norm.bias": "dec.output_norm.bias"
+        }
+    }
+}

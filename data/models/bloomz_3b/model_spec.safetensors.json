@@ -1,0 +1,23 @@
+{
+    "config_file": "config.json",
+    "model_files": ["model.safetensors"],
+    "model_file_format": "safetensors",
+
+    "tokenizer_files": ["tokenizer.json", "special_tokens_map.json"],
+    "tokenization_algorithm": "bpe",
+    "token_bytes_mapping": 1,
+    "generation_config": "",
+
+    "network_structure":
+    {
+        "type": "transformer.bloom",
+        "normalization_function": "std",
+        "activation_function": "gelu",
+        "position_embedding": "alibi",
+
+        "tensor_name_prefix": "",
+        "tensor_name_mapping":
+        {
+        }
+    }
+}

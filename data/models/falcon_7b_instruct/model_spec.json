@@ -1,0 +1,37 @@
+{
+    "config_file": "config.json",
+    "model_files": ["pytorch_model.bin.index.json", "pytorch_model-00001-of-00002.bin", "pytorch_model-00002-of-00002.bin"],
+    "model_file_format": "pickle",
+
+    "tokenizer_files": ["tokenizer.json", "special_tokens_map.json"],
+    "tokenization_algorithm": "bpe",
+    "token_bytes_mapping": 1,
+    "generation_config": "generation_config.json",
+
+    "network_structure":
+    {
+        "type": "transformer.decoder_only",
+        "normalization_function": "std",
+        "activation_function": "gelu",
+        "position_embedding": "rope",
+
+        "qk_column_order": 2,
+        "qkv_format": 0,
+        "normalize_lm_head": false,
+        "is_parallel_attn": true,
+
+        "tensor_name_prefix": "transformer.",
+        "tensor_name_mapping":
+        {
+            "word_embeddings.weight": "dec.token_embeddings.weight",
+            "h.{i}.input_layernorm.weight": "dec.{i}.self_attn.pre_norm.weight",
+            "h.{i}.input_layernorm.bias": "dec.{i}.self_attn.pre_norm.bias",
+            "h.{i}.self_attention.query_key_value.weight": "dec.{i}.self_attn.qkv.weight",
+            "h.{i}.self_attention.dense.weight": "dec.{i}.self_attn.wo.weight",
+            "h.{i}.mlp.dense_h_to_4h.weight": "dec.{i}.feed_forward.w1.weight",
+            "h.{i}.mlp.dense_4h_to_h.weight": "dec.{i}.feed_forward.w2.weight",
+            "ln_f.weight": "dec.output_norm.weight",
+            "ln_f.bias": "dec.output_norm.bias"
+        }
+    }
+}
