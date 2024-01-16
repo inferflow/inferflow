@@ -183,6 +183,21 @@ bool Quantization::DequantizeRow_Q5(float *target, const BlockQ5_B32T1 *blocks, 
     return true;
 }
 
+bool Quantization::DequantizeRow_Q5_B64T1(float * target,
+    const BlockQ5_B64T1 *blocks, uint64_t block_count)
+{
+    if (target == nullptr || blocks == nullptr) {
+        return false;
+    }
+
+    for (uint64_t idx = 0; idx < block_count; idx++)
+    {
+        DequantizeQ5_B64T1(target + idx * Q5_B64_CAPACITY, blocks + idx);
+    }
+
+    return true;
+}
+
 bool Quantization::DequantizeRow_Q4_B16(float *target,
     const BlockQ4_B16 *blocks, uint64_t block_count)
 {
@@ -208,6 +223,21 @@ bool Quantization::DequantizeRow_Q4_B32T1(float *target,
     for (uint64_t idx = 0; idx < block_count; idx++)
     {
         DequantizeQ4_B32T1(target + idx * Q4B32_CAPACITY, blocks + idx);
+    }
+
+    return true;
+}
+
+bool Quantization::DequantizeRow_Q4_B64T1(float * target,
+    const BlockQ4_B64T1 *blocks, uint64_t block_count)
+{
+    if (target == nullptr || blocks == nullptr) {
+        return false;
+    }
+
+    for (uint64_t idx = 0; idx < block_count; idx++)
+    {
+        DequantizeQ4_B64T1(target + idx * Q4_B64_CAPACITY, blocks + idx);
     }
 
     return true;

@@ -10,14 +10,14 @@ use_inferflow::transformer;
 void Run(const string &config_path)
 {
     InferFlowService server;
-    LogKeyInfo("Initializing the InferFlow service...");
+    LogKeyInfo("Initializing the Inferflow service...");
     TaskMonitor tm;
     bool ret = server.Init(config_path);
-    Macro_RetxVoidIf(!ret, LogError("Failed to initialize the InferFlow service"));
+    Macro_RetxVoidIf(!ret, LogError("Failed to initialize the Inferflow service"));
 
     tm.ShowElapsedTime();
 
-    LogKeyInfo("===== InferFlow Service =====");
+    LogKeyInfo("===== Inferflow Service =====");
     string version = server.Version();
     LogKeyInfo("Version: %s", version.c_str());
     server.Start();

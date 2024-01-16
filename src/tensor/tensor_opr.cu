@@ -695,6 +695,9 @@ bool TensorOpr::PositionEmbedding(DeviceTensor &B, const DeviceTensor &A,
         return false;
     }
 
+    int rope_cols = (int)(A.ne[0] * params.partial_rotary_factor + 0.5f);
+    int rope_dims = (int)(params.dims * params.partial_rotary_factor + 0.5f);
+
     int y_num = A.ne[1];
     if (z_num < 0) {
         z_num = A.ne[2] - start_z;
@@ -721,7 +724,7 @@ bool TensorOpr::PositionEmbedding(DeviceTensor &B, const DeviceTensor &A,
             {
                 PosEmbedding_Rope_Order2_Kernel<half, half><<<grid, block>>>(
                     a_data, b_data, A.ne[0], y_num, z_num, params.context_len,
-                    params.dims, params.mode, params.rope_theta);
+                    rope_dims, params.mode, params.rope_theta, rope_cols);
             }
             else
             {
@@ -760,7 +763,7 @@ bool TensorOpr::PositionEmbedding(DeviceTensor &B, const DeviceTensor &A,
             {
                 PosEmbedding_Rope_Order2_Kernel<float, float><<<grid, block>>>(
                     a_data, b_data, A.ne[0], y_num, z_num, params.context_len,
-                    params.dims, params.mode, params.rope_theta);
+                    params.dims, params.mode, params.rope_theta, rope_cols);
             }
             else
             {
@@ -1068,15 +1071,15 @@ bool TensorOpr::GeluActivation(DeviceTensor &B, const DeviceTensor &A)
 
 //static
 bool TensorOpr::SoftMax(DeviceTensor &A, int diag_mask_prefix_len,
-    float mask_value, DeviceTensor *aux_tensor)
+    float mask_value, float scale, DeviceTensor *aux_tensor)
 {
-    bool ret = SoftMax(A, A, diag_mask_prefix_len, mask_value, aux_tensor);
+    bool ret = SoftMax(A, A, diag_mask_prefix_len, mask_value, scale, aux_tensor);
     return ret;
 }
 
 //static
 bool TensorOpr::SoftMax(DeviceTensor &B, const DeviceTensor &A,
-    int diag_mask_prefix_len, float mask_value,
+    int diag_mask_prefix_len, float mask_value, float scale,
     DeviceTensor *aux_tensor)
 {
     (void)aux_tensor;
@@ -1086,7 +1089,7 @@ bool TensorOpr::SoftMax(DeviceTensor &B, const DeviceTensor &A,
     }
 
     //ret = SoftMax_Alg1(B, A, aux_tensor);
-    ret = SoftMax_Alg2(B, A, diag_mask_prefix_len, mask_value);
+    ret = SoftMax_Alg2(B, A, diag_mask_prefix_len, mask_value, scale);
     return ret;
 }
 
@@ -1175,7 +1178,7 @@ bool TensorOpr::SoftMax_Alg1(DeviceTensor &B, const DeviceTensor &A, DeviceTenso
 }
 
 bool TensorOpr::SoftMax_Alg2(DeviceTensor &B, const DeviceTensor &A,
-    int diag_mask_prefix_len, float mask_value)
+    int diag_mask_prefix_len, float mask_value, float scale)
 {
     float neg_infinity = -std::numeric_limits<float>::infinity();
 
@@ -1191,13 +1194,13 @@ bool TensorOpr::SoftMax_Alg2(DeviceTensor &B, const DeviceTensor &A,
         {
             half *b_data = B.data_f16();
             Tensor_SoftMax_Alg2_Kernel<<<grid, block>>>(cx, cy, cz, a_data, b_data,
-                neg_infinity, diag_mask_prefix_len, mask_value);
+                neg_infinity, diag_mask_prefix_len, mask_value, scale);
         }
         else
         {
             float *b_data = B.data_f32();
             Tensor_SoftMax_Alg2_Kernel<<<grid, block>>>(cx, cy, cz, a_data, b_data,
-                neg_infinity, diag_mask_prefix_len, mask_value);
+                neg_infinity, diag_mask_prefix_len, mask_value, scale);
         }
     }
     else
@@ -1205,7 +1208,7 @@ bool TensorOpr::SoftMax_Alg2(DeviceTensor &B, const DeviceTensor &A,
         const float *a_data = A.data_f32();
         float *b_data = B.data_f32();
         Tensor_SoftMax_Alg2_Kernel<<<grid, block>>>(cx, cy, cz, a_data, b_data,
-            neg_infinity, diag_mask_prefix_len, mask_value);
+            neg_infinity, diag_mask_prefix_len, mask_value, scale);
     }
 
     bool ret = CudaUtil::DeviceSynchronize("SoftMax_Alg2");
@@ -1608,8 +1611,11 @@ bool TensorOpr::Quantize(DeviceTensor &B, const DeviceTensor &A)
     case ElementType::Q6_B64T1:
         ret = QuantizeQ6_B64T1(B, A);
         break;
-    case ElementType::Q5:
-        ret = QuantizeQ5(B, A);
+    case ElementType::Q5_B32T1:
+        ret = QuantizeQ5_B32T1(B, A);
+        break;
+    case ElementType::Q5_B64T1:
+        ret = QuantizeQ5_B64T1(B, A);
         break;
     case ElementType::Q4_B16:
         ret = QuantizeQ4B16(B, A);
@@ -1617,6 +1623,9 @@ bool TensorOpr::Quantize(DeviceTensor &B, const DeviceTensor &A)
     case ElementType::Q4_B32T1A:
     case ElementType::Q4_B32T1B:
         ret = QuantizeQ4_B32T1(B, A);
+        break;
+    case ElementType::Q4_B64T1:
+        ret = QuantizeQ4_B64T1(B, A);
         break;
     case ElementType::Q3H_B64T1:
         ret = QuantizeQ3H_B64T1(B, A);
@@ -1790,10 +1799,10 @@ bool TensorOpr::QuantizeQ6_B64T1(DeviceTensor &B, const DeviceTensor &A)
 }
 
 //static
-bool TensorOpr::QuantizeQ5(DeviceTensor &B, const DeviceTensor &A)
+bool TensorOpr::QuantizeQ5_B32T1(DeviceTensor &B, const DeviceTensor &A)
 {
-    if (B.data_type != ElementType::Q5) {
-        LogError("QuantizeQ5: The data type of B should be Q5");
+    if (B.data_type != ElementType::Q5_B32T1) {
+        LogError("QuantizeQ5_B32T1: The data type of B should be Q5_B32T1");
         return false;
     }
 
@@ -1844,6 +1853,44 @@ bool TensorOpr::QuantizeQ5(DeviceTensor &B, const DeviceTensor &A)
         return false;
     }
     return true;
+}
+
+//static
+bool TensorOpr::QuantizeQ5_B64T1(DeviceTensor &B, const DeviceTensor &A)
+{
+    if (B.data_type != ElementType::Q5_B64T1) {
+        LogError("QuantizeQ5_B64T1: The data type of B should be Q5_B64T1");
+        return false;
+    }
+
+    const int quant_block_capacity = Q5_B64_CAPACITY;
+    int M = A.Rows(), N = A.Columns();
+    if (N % quant_block_capacity != 0) {
+        LogError("The number of columns should be a multiple of %d", quant_block_capacity);
+        return false;
+    }
+
+    int blocks_per_row = N / quant_block_capacity;
+    dim3 block(8, 16);
+    dim3 grid((blocks_per_row + block.x - 1) / block.x, (M + block.y - 1) / block.y);
+    //cout << "grid: " << grid << "; block: " << block << endl;
+
+    uint8_t *b_data = (uint8_t*)B.data;
+    if (A.data_type == ElementType::F16)
+    {
+        const half *a_data = A.data_f16();
+        Tensor_QuantizeQ5_B64T1_Kernel<half><<<grid, block>>>(a_data, b_data,
+            M, N, (int)B.bytes_per_row, blocks_per_row);
+    }
+    else
+    {
+        const float *a_data = A.data_f32();
+        Tensor_QuantizeQ5_B64T1_Kernel<float><<<grid, block>>>(a_data, b_data,
+            M, N, (int)B.bytes_per_row, blocks_per_row);
+    }
+
+    bool ret = CudaUtil::DeviceSynchronize("QuantizeQ5_B64T1");
+    return ret;
 }
 
 //static
@@ -1952,6 +1999,44 @@ bool TensorOpr::QuantizeQ4_B32T1(DeviceTensor &B, const DeviceTensor &A)
     }
 
     bool ret = CudaUtil::DeviceSynchronize("QuantizeQ4_B32T1");
+    return ret;
+}
+
+//static
+bool TensorOpr::QuantizeQ4_B64T1(DeviceTensor &B, const DeviceTensor &A)
+{
+    if (B.data_type != ElementType::Q4_B64T1) {
+        LogError("QuantizeQ4_B64T1: The data type of B should be Q4_B64T1");
+        return false;
+    }
+
+    const int quant_block_capacity = Q4_B64_CAPACITY;
+    int M = A.Rows(), N = A.Columns();
+    if (N % quant_block_capacity != 0) {
+        LogError("The number of columns should be a multiple of %d", quant_block_capacity);
+        return false;
+    }
+
+    int blocks_per_row = N / quant_block_capacity;
+    dim3 block(8, 16);
+    dim3 grid((blocks_per_row + block.x - 1) / block.x, (M + block.y - 1) / block.y);
+    //cout << "grid: " << grid << "; block: " << block << endl;
+
+    uint8_t *b_data = (uint8_t*)B.data;
+    if (A.data_type == ElementType::F16)
+    {
+        const half *a_data = A.data_f16();
+        Tensor_QuantizeQ4_B64T1_Kernel<half><<<grid, block>>>(a_data, b_data,
+            M, N, (int)B.bytes_per_row, blocks_per_row);
+    }
+    else
+    {
+        const float *a_data = A.data_f32();
+        Tensor_QuantizeQ4_B64T1_Kernel<float><<<grid, block>>>(a_data, b_data,
+            M, N, (int)B.bytes_per_row, blocks_per_row);
+    }
+
+    bool ret = CudaUtil::DeviceSynchronize("QuantizeQ4_B64T1");
     return ret;
 }
 
@@ -2135,8 +2220,11 @@ bool TensorOpr::Dequantize(DeviceTensor &B, const DeviceTensorEx &Ax,
     case ElementType::Q6_B64T1:
         ret = DequantizeQ6_B64T1(B, A);
         break;
-    case ElementType::Q5:
-        ret = DequantizeQ5(B, A, be_transpose, alg_id);
+    case ElementType::Q5_B32T1:
+        ret = DequantizeQ5_B32T1(B, A, be_transpose, alg_id);
+        break;
+    case ElementType::Q5_B64T1:
+        ret = DequantizeQ5_B64T1(B, A);
         break;
     case ElementType::Q4_B16:
         ret = DequantizeQ4B16(B, A);
@@ -2149,6 +2237,9 @@ bool TensorOpr::Dequantize(DeviceTensor &B, const DeviceTensorEx &Ax,
         else {
             ret = DequantizeQ4_B32T1(B, A);
         }
+        break;
+    case ElementType::Q4_B64T1:
+        ret = DequantizeQ4_B64T1(B, A);
         break;
     case ElementType::Q3H_B64T1:
         ret = DequantizeQ3H_B64T1(B, A);
@@ -2300,7 +2391,7 @@ bool TensorOpr::DequantizeQ6_B64T1(DeviceTensor &B, const DeviceTensor &A)
 }
 
 //static
-bool TensorOpr::DequantizeQ5(DeviceTensor &B, const DeviceTensor &A,
+bool TensorOpr::DequantizeQ5_B32T1(DeviceTensor &B, const DeviceTensor &A,
     bool be_transpose, int alg_id)
 {
     bool ret = true;
@@ -2323,8 +2414,8 @@ bool TensorOpr::DequantizeQ5(DeviceTensor &B, const DeviceTensor &A,
 //static
 bool TensorOpr::DequantizeQ5_Alg1(DeviceTensor &B, const DeviceTensor &A)
 {
-    if (A.data_type != ElementType::Q5) {
-        LogError("DequantizeQ5: The data type of A should be Q5");
+    if (A.data_type != ElementType::Q5_B32T1) {
+        LogError("DequantizeQ5_Alg1: The data type of A should be Q5_B32T1");
         return false;
     }
 
@@ -2362,8 +2453,8 @@ bool TensorOpr::DequantizeQ5_Alg1(DeviceTensor &B, const DeviceTensor &A)
 //static
 bool TensorOpr::DequantizeQ5_Alg2(DeviceTensor &B, const DeviceTensor &A, bool be_transpose)
 {
-    if (A.data_type != ElementType::Q5) {
-        LogError("The data type of A should be Q5");
+    if (A.data_type != ElementType::Q5_B32T1) {
+        LogError("DequantizeQ5_Alg2: The data type of A should be Q5_B32T1");
         return false;
     }
 
@@ -2420,6 +2511,44 @@ bool TensorOpr::DequantizeQ5_Alg2(DeviceTensor &B, const DeviceTensor &A, bool b
             Tensor_DequantizeQ5_Alg2_Kernel<float><<<grid, block>>>(a_data, b_data,
                 M, N, (int)A.bytes_per_row, blocks_per_row);
         }
+    }
+
+    return true;
+}
+
+//static
+bool TensorOpr::DequantizeQ5_B64T1(DeviceTensor &B, const DeviceTensor &A)
+{
+    //bool be_transpose = false;
+    if (A.data_type != ElementType::Q5_B64T1) {
+        LogError("The data type (%d) of A should be Q5_B64T1", A.data_type);
+        return false;
+    }
+
+    const int quant_block_capacity = Q5_B64_CAPACITY;
+    int M = A.Rows(), N = A.Columns();
+    if (N % quant_block_capacity != 0) {
+        LogError("The number of columns should be a multiple of %d", quant_block_capacity);
+        return false;
+    }
+
+    int blocks_per_row = N / quant_block_capacity;
+    dim3 block(16, 8);
+    dim3 grid(blocks_per_row, (M + block.y - 1) / block.y);
+    //cout << "grid: " << grid << "; block: " << block << endl;
+
+    const uint8_t *a_data = (const uint8_t*)A.data;
+    if (B.data_type == ElementType::F16)
+    {
+        half *b_data = B.data_f16();
+        Tensor_DequantizeQ5_B64T1_Kernel<half><<<grid, block>>>(a_data, b_data,
+            M, N, (int)A.bytes_per_row, blocks_per_row);
+    }
+    else
+    {
+        float *b_data = B.data_f32();
+        Tensor_DequantizeQ5_B64T1_Kernel<float><<<grid, block>>>(a_data, b_data,
+            M, N, (int)A.bytes_per_row, blocks_per_row);
     }
 
     return true;
@@ -2542,6 +2671,44 @@ bool TensorOpr::DequantizeQ4_B32T1(DeviceTensor &B, const DeviceTensor &A)
     {
         float *b_data = B.data_f32();
         Tensor_DequantizeQ4_B32T1_Kernel<float><<<grid, block>>>(a_data, b_data,
+            M, N, (int)A.bytes_per_row, blocks_per_row);
+    }
+
+    return true;
+}
+
+//static
+bool TensorOpr::DequantizeQ4_B64T1(DeviceTensor &B, const DeviceTensor &A)
+{
+    //bool be_transpose = false;
+    if (A.data_type != ElementType::Q4_B64T1) {
+        LogError("The data type (%d) of A should be Q4_B64T1", A.data_type);
+        return false;
+    }
+
+    const int quant_block_capacity = Q4_B64_CAPACITY;
+    int M = A.Rows(), N = A.Columns();
+    if (N % quant_block_capacity != 0) {
+        LogError("The number of columns should be a multiple of %d", quant_block_capacity);
+        return false;
+    }
+
+    int blocks_per_row = N / quant_block_capacity;
+    dim3 block(16, 8);
+    dim3 grid(blocks_per_row, (M + block.y - 1) / block.y);
+    //cout << "grid: " << grid << "; block: " << block << endl;
+
+    const uint8_t *a_data = (const uint8_t*)A.data;
+    if (B.data_type == ElementType::F16)
+    {
+        half *b_data = B.data_f16();
+        Tensor_DequantizeQ4_B64T1_Kernel<half><<<grid, block>>>(a_data, b_data,
+            M, N, (int)A.bytes_per_row, blocks_per_row);
+    }
+    else
+    {
+        float *b_data = B.data_f32();
+        Tensor_DequantizeQ4_B64T1_Kernel<float><<<grid, block>>>(a_data, b_data,
             M, N, (int)A.bytes_per_row, blocks_per_row);
     }
 

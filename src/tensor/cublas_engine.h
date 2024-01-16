@@ -30,7 +30,7 @@ public:
 
     bool GemmEx(DeviceTensor &C, const DeviceTensor &A, const DeviceTensor &B,
         float alpha = 1.0f, float beta = 0, bool is_b_column_major = false,
-        int alg_id = CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        bool is_comp32 = false, int alg_id = CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     bool GemmExBatch(DeviceTensor &C, const DeviceTensor &A, const DeviceTensor &B,
         DeviceMemoryHeap &heap, float alpha = 1.0f, float beta = 0,
         bool is_b_column_major = false,

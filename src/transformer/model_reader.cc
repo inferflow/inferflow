@@ -604,6 +604,7 @@ bool ModelReader::LoadConfigJson(TransformerModel &model, TokenizerConfig &tok_c
     }
 
     jobj.GetFieldValue(model.spec.rope_theta, L"rope_theta", jdoc);
+    jobj.GetFieldValue(model.spec.partial_rotary_factor, L"partial_rotary_factor", jdoc);
 
     bool is_multi_query_attention = false;
     jobj.GetFieldValue(is_multi_query_attention, L"multi_query", jdoc);
@@ -1113,9 +1114,20 @@ bool ModelReader::LoadTokenizer_Bin(StdVocabulary &vocab, const ModelSpec &spec,
 
         uint32_t start_offset = (uint32_t)strm.TellRd();
         ret = strm.Read(buf, 2);
-        //int token_info_len = 0;
-        //memcpy((char*)&token_info_len, buf, 1);
         int token_info_len = (int)(uint8_t)buf[0];
+        if (buf[1] != 0x0A)
+        {
+            int nh = (int)(uint8_t)buf[1];
+            token_info_len = (token_info_len & 0x7F) | (nh << 7);
+            ret = strm.Read(buf, 1);
+            if (buf[0] != 0x0A)
+            {
+                LogError("Invalid vocabulary format for token %d (start_offset: %u)",
+                    token_id, start_offset);
+                return false;
+            }
+        }
+
         ret = ret && strm.Read(buf, token_info_len);
         bool is_line_feed = (uint8_t)buf[token_info_len - 1] == 0x0A; //LF
         if (!ret || (token_id + 1 < hparams.vocab_size && !is_line_feed))
@@ -1125,18 +1137,26 @@ bool ModelReader::LoadTokenizer_Bin(StdVocabulary &vocab, const ModelSpec &spec,
             return false;
         }
 
+        int token_str_start = 1;
         int token_len = (uint8_t)buf[0];
-        //token_str_len (1), token_str, score_fld (1), score (4)
-        if (token_info_len < 1 + token_len + 1 + 4)
+        if ((token_len & 0x80) != 0)
         {
-            LogError("Invalid token line format (token_id: %d, len: %, line_len: %d)",
+            int nh = (uint8_t)buf[1];
+            token_len = (token_len & 0x7F) | (nh << 7);
+            token_str_start = 2;
+        }
+
+        //token_str_len (1 or 2), token_str, score_fld (1), score (4)
+        if (token_info_len < token_str_start + token_len + 1 + 4)
+        {
+            LogError("Invalid token line format (token_id: %d, len: %d, line_len: %d)",
                 token_id, token_len, token_info_len);
             return false;
         }
 
-        tok.str.assign(buf + 1, token_len);
+        tok.str.assign(buf + token_str_start, token_len);
 
-        int offset = 1 + token_len;
+        int offset = token_str_start + token_len;
         while (offset + 1 < token_info_len)
         {
             uint8_t field_ch = (uint8_t)buf[offset];
@@ -1217,7 +1237,7 @@ bool ModelReader::ReadVocabulary_Std(TransformerModel &model,
 
     const uint32_t max_token_len = 4095;
     uint32_t token_len = 0;
-    int negative_count = 0;
+    int invalid_count = 0;
     char *token_buf = new char[max_token_len + 1];
     for (int token_id = 0; ret && token_id < hparams.vocab_size; token_id++)
     {
@@ -1248,7 +1268,7 @@ bool ModelReader::ReadVocabulary_Std(TransformerModel &model,
         {
             //score = -1;
             token_type = (int)TokenType::Invalid;
-            negative_count++;
+            invalid_count++;
         }
 
         model.vocabulary.str_to_id[token_str] = token_id;
@@ -1268,8 +1288,8 @@ bool ModelReader::ReadVocabulary_Std(TransformerModel &model,
     }
     delete[] token_buf;
 
-    if (negative_count > 0) {
-        LogWarning("Number of tokens with negative scores: %d", negative_count);
+    if (invalid_count > 0) {
+        LogWarning("Number of tokens with invalid scores: %d", invalid_count);
     }
 
     int vocab_dict_size = (int)model.vocabulary.token_array.size();
@@ -1295,7 +1315,7 @@ bool ModelReader::ReadVocabulary_Format2(TransformerModel &model, IBinaryStream 
     Macro_RetFalseIf(!ret);
 
     uint32_t token_len = 0;
-    int negative_count = 0;
+    int invalid_count = 0;
     char *token_buf = new char[max_token_len + 1];
     for (int token_id = 0; ret && token_id < hparams.vocab_size; token_id++)
     {
@@ -1325,7 +1345,7 @@ bool ModelReader::ReadVocabulary_Format2(TransformerModel &model, IBinaryStream 
         {
             //score = -1;
             tok.type = (int)TokenType::Invalid;
-            negative_count++;
+            invalid_count++;
         }
 
         tok.score = score;
@@ -1333,8 +1353,8 @@ bool ModelReader::ReadVocabulary_Format2(TransformerModel &model, IBinaryStream 
     }
     delete[] token_buf;
 
-    if (negative_count > 0) {
-        LogWarning("Number of tokens with negative scores: %d", negative_count);
+    if (invalid_count > 0) {
+        LogWarning("Number of tokens with invalid scores: %d", invalid_count);
     }
 
     return ret;
@@ -1637,7 +1657,7 @@ bool ModelReader::LoadModel_Pickle(TransformerModel &model, TransformerContext &
         BinaryFileStream strm;
         strm.SetRdBufferSize(4096);
         ret = strm.OpenForRead(file_path);
-        Macro_RetxFalseIf(!ret, LogError("Failed to open the model file"));
+        Macro_RetxFalseIf(!ret, LogError("Failed to open the model file: %s", file_name.c_str()));
 
         reader.Clear();
         map<string, StrAndCount> section_to_tensor_name_map;
@@ -1660,6 +1680,7 @@ bool ModelReader::LoadModel_Pickle(TransformerModel &model, TransformerContext &
         int skip_count = 0, local_proc_num = 0;
         //auto &tensor_array = model.tensor_spec_table.tensor_array;
         int section_num = (int)section_to_tensor_name_map.size();
+        //LogKeyInfo("Section names: %d", section_num);
         //int tensor_num = (int)tensor_array.size();
         //for (int idx = 0; idx < tensor_num - base_idx; idx++)
         for (int idx = 0; ret && local_proc_num < section_num; idx++)
@@ -1741,6 +1762,7 @@ bool ModelReader::Pickle_ReadHeader(TransformerModel &model,
     data_type_map["HalfStorage"] = ElementType::F16;
     data_type_map["BFloat16Storage"] = ElementType::BF16;
 
+    int warning_count = 0;
     TensorSpec tensor;
     string storage;
     ElementType data_type = ElementType::F16;
@@ -1859,8 +1881,12 @@ bool ModelReader::Pickle_ReadHeader(TransformerModel &model,
                     //LogKeyInfo("The size of %s is adjusted from %d to %d",
                     //    tensor.name.c_str(), tensor.size, tensor_size);
                     //tensor.size = tensor_size;
-                    LogWarning("Inconsistent tensor size (%s): %u vs. %u",
-                        tensor.name.c_str(), tensor.size, tensor_size);
+                    warning_count++;
+                    if (warning_count <= 3)
+                    {
+                        LogWarning("Inconsistent tensor size (%s): %u vs. %u",
+                            tensor.name.c_str(), tensor.size, tensor_size);
+                    }
                 }
 
                 model.tensor_spec_table.Add(tensor);
@@ -1872,6 +1898,9 @@ bool ModelReader::Pickle_ReadHeader(TransformerModel &model,
         }
     }
 
+    if (warning_count > 0) {
+        LogKeyInfo("Number of warnings in this file: %d", warning_count);
+    }
     (void)has_collections;
     return ret;
 }

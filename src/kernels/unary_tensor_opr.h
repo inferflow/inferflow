@@ -480,7 +480,7 @@ __global__ void Tensor_SoftMaxPre_Kernel(int M, int N, SourceType const *S,
 template <typename SourceType, typename TargetType>
 static __global__ void Tensor_SoftMax_Alg2_Kernel(int cx, int cy, int cz,
     const SourceType *S, TargetType *T, float neg_infinity,
-    int diag_mask_prefix_len, float mask_value)
+    int diag_mask_prefix_len, float mask_value, float s_scale)
 {
     const int zi = threadIdx.z + blockIdx.z * blockDim.z;
     const int row = threadIdx.y + blockIdx.y * blockDim.y + zi * gridDim.y;
@@ -491,7 +491,7 @@ static __global__ void Tensor_SoftMax_Alg2_Kernel(int cx, int cy, int cz,
     for (int xi = tid; xi < cx; xi += block_size)
     {
         const int offset = row * cx + xi;
-        float v = (float)S[offset];
+        float v = s_scale * (float)S[offset];
         if (diag_mask_prefix_len >= 0)
         {
             int r1 = row % cy;
@@ -509,7 +509,7 @@ static __global__ void Tensor_SoftMax_Alg2_Kernel(int cx, int cy, int cz,
     for (int xi = tid; xi < cx; xi += block_size)
     {
         const int offset = row * cx + xi;
-        float v = (float)S[offset];
+        float v = s_scale * (float)S[offset];
         if (diag_mask_prefix_len >= 0)
         {
             int r1 = row % cy;
@@ -687,7 +687,8 @@ __global__ void PosEmbedding_Rope_Std_Kernel(SourceType const *S, TargetType *T,
 
 template <typename SourceType, typename TargetType>
 __global__ void PosEmbedding_Rope_Order2_Kernel(SourceType const *S, TargetType *T,
-    int ne0, int ne1, int ne2, int context_len, int dims, int mode, float theta)
+    int ne0, int ne1, int ne2, int context_len, int dims, int mode, float theta,
+    int rope_cols)
 {
     int row = threadIdx.y + blockIdx.y * blockDim.y;
     int col = threadIdx.x + blockIdx.x * blockDim.x;
@@ -709,10 +710,21 @@ __global__ void PosEmbedding_Rope_Order2_Kernel(SourceType const *S, TargetType 
         const float cos_theta = cosf(theta);
         const float sin_theta = sinf(theta);
 
-        const float x0 = S[row * ne0 + col];
-        const float x1 = S[row * ne0 + col + ne0 / 2];
-        T[row * ne0 + col] = (TargetType)(x0 * cos_theta - x1 * sin_theta);
-        T[row * ne0 + col + ne0 / 2] = (TargetType)(x0 * sin_theta + x1 * cos_theta);
+        if (2 * col < rope_cols)
+        {
+            const float x0 = S[row * ne0 + col];
+            const float x1 = S[row * ne0 + col + rope_cols / 2];
+            T[row * ne0 + col] = (TargetType)(x0 * cos_theta - x1 * sin_theta);
+            T[row * ne0 + col + rope_cols / 2] = (TargetType)(x0 * sin_theta + x1 * cos_theta);
+        }
+        else
+        {
+            int base_col = row * ne0 + 2 * col;
+            const float x0 = S[base_col];
+            const float x1 = S[base_col + 1];
+            T[base_col] = x0;
+            T[base_col + 1] = x1;
+        }
     }
 }
 

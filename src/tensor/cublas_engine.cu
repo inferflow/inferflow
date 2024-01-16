@@ -36,7 +36,7 @@ bool CublasEngine::Init()
 }
 
 bool CublasEngine::GemmEx(DeviceTensor &C, const DeviceTensor &A, const DeviceTensor &B,
-    float alpha, float beta, bool is_b_column_major, int alg_id)
+    float alpha, float beta, bool is_b_column_major, bool is_comp32, int alg_id)
 {
     bool ret = true;
     int m = A.Rows(), k = A.Columns();
@@ -55,7 +55,6 @@ bool CublasEngine::GemmEx(DeviceTensor &C, const DeviceTensor &A, const DeviceTe
         const half *a_data = A.data_f16();
         const half *b_data = B.data_f16();
         half *c_data = C.data_f16();
-        bool is_comp32 = false;
         ret = GemmEx_F16(m, n, k, a_data, b_data, c_data, alpha, beta,
             is_b_column_major, is_comp32, alg_id);
     }

@@ -467,10 +467,23 @@ int main(int argc, const char *argv[])
     string app_name = "llm_inference";
     string app_dir = Path::GetModuleDir();
     string config_path = app_dir + app_name + ".ini";
-    if (argc > 1) {
-        config_path = app_dir + argv[1];
+    if (argc > 1)
+    {
+        bool is_abs = Path::IsAbsolute(argv[1]);
+        if (is_abs)
+        {
+            config_path = argv[1];
+        }
+        else
+        {
+            config_path = app_dir + argv[1];
+            if (!Path::FileExists(config_path.c_str())) {
+                config_path = app_dir + "../" + argv[1];
+            }
+        }
     }
-    else if (!Path::FileExists(config_path.c_str())) {
+    else if (!Path::FileExists(config_path.c_str()))
+    {
         config_path = app_dir + "../" + app_name + ".ini";
     }
 

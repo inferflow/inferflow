@@ -79,6 +79,7 @@ struct ModelSpec
     ActivationFn activation_fn = ActivationFn::SILU;
     PositionEmbeddingAlg pos_embedding_alg = PositionEmbeddingAlg::ROPE;
     float rope_theta = 10000.0f;
+    float partial_rotary_factor = 1.0f;
     map<string, string> tensor_name_map;
     map<string, string> tensor_name_pre_map;
 
@@ -105,7 +106,7 @@ struct ModelSpec
 
     bool be_host_embeddings = true;
     ElementType device_weight_data_type = ElementType::F16;
-    ElementType device_kv_cache_data_type = ElementType::F16;
+    ElementType device_kv_cache_data_type = ElementType::Q8_B32T2;
     ElementType host_weight_data_type = ElementType::F16;
     float delta_tensor_ratio = 0;
     int tensor_quant_threshold = 2000 * 2000;
@@ -220,6 +221,7 @@ public:
     DeviceTensor *decoder_output_norm_b = nullptr;
     DeviceTensor *output = nullptr; //lm_head (decoder output)
     DeviceTensor *output_quant = nullptr; //quantized version of lm_head
+    DeviceTensor *output_b = nullptr;
 
     SimpleLayer output_transform;
 
@@ -432,6 +434,7 @@ public:
     const HostTensor *decoder_output_norm = nullptr;
     const HostTensor *decoder_output_norm_b = nullptr;
     const HostTensor *output = nullptr;
+    const HostTensor *output_b = nullptr;
 
     SimpleLayer output_transform;
 

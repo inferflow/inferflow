@@ -381,8 +381,11 @@ bool DeviceTensorBuilder::Build_Quant(DeviceTensorEx &target, const HostTensor &
     case ElementType::Q6_B64T1:
         ret = DeviceTensorUtil::BuildTensor_Q6_B64T1(*target.tensor, host_array, cx_new, cy_new, cz);
         break;
-    case ElementType::Q5:
-        ret = DeviceTensorUtil::BuildQ5Tensor(*target.tensor, host_array, cx_new, cy_new, cz);
+    case ElementType::Q5_B32T1:
+        ret = DeviceTensorUtil::BuildTensor_Q5_B32T1(*target.tensor, host_array, cx_new, cy_new, cz);
+        break;
+    case ElementType::Q5_B64T1:
+        ret = DeviceTensorUtil::BuildTensor_Q5_B64T1(*target.tensor, host_array, cx_new, cy_new, cz);
         break;
     case ElementType::Q4_B16:
         ret = DeviceTensorUtil::BuildQ4B16Tensor(*target.tensor, host_array, cx_new, cy_new, cz);
@@ -392,6 +395,9 @@ bool DeviceTensorBuilder::Build_Quant(DeviceTensorEx &target, const HostTensor &
         break;
     case ElementType::Q4_B32T1B:
         ret = DeviceTensorUtil::BuildTensor_Q4_B32T1B(*target.tensor, host_array, cx_new, cy_new, cz);
+        break;
+    case ElementType::Q4_B64T1:
+        ret = DeviceTensorUtil::BuildTensor_Q4_B64T1(*target.tensor, host_array, cx_new, cy_new, cz);
         break;
     case ElementType::Q3H_B64T1:
         ret = DeviceTensorUtil::BuildTensor_Q3H_B64T1(*target.tensor, host_array, cx_new, cy_new, cz);

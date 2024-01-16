@@ -250,16 +250,6 @@ bool HostTensor::CopyRow(std::vector<float> &vec, int y, int z) const
     }
     else
     {
-        const BlockQ8_B32T1 *q8_b32t1_blocks = nullptr;
-        const BlockQ8_B32T2 *q8_b32t2_blocks = nullptr;
-        const BlockQ6_B64T1 *q6_b64t1_blocks = nullptr;
-        const BlockQ5_B32T1 *q5_blocks = nullptr;
-        const BlockQ4_B16 *q4b16_blocks = nullptr;
-        const BlockQ4_B32T1 *q4b32t1_blocks = nullptr;
-        const BlockQ3H_B64T1 *q3h_b64t1_blocks = nullptr;
-        const BlockQ3_B32T1 *q3b32t1_blocks = nullptr;
-        const BlockQ2_B32T1 *q2b32t1_blocks = nullptr;
-
         switch (this->data_type)
         {
         case ElementType::F16:
@@ -269,52 +259,62 @@ bool HostTensor::CopyRow(std::vector<float> &vec, int y, int z) const
             }
             break;
         case ElementType::Q8_B32T1:
-            q8_b32t1_blocks = (const BlockQ8_B32T1*)row_data;
             block_num = this->bytes_per_row / sizeof(BlockQ8_B32T1);
-            Quantization::DequantizeRow_Q8_B32T1(vec.data(), q8_b32t1_blocks, block_num);
+            Quantization::DequantizeRow_Q8_B32T1(vec.data(),
+                (const BlockQ8_B32T1*)row_data, block_num);
             break;
         case ElementType::Q8_B32T2:
-            q8_b32t2_blocks = (const BlockQ8_B32T2*)row_data;
             block_num = this->bytes_per_row / sizeof(BlockQ8_B32T2);
-            Quantization::DequantizeRow_Q8_B32T2(vec.data(), q8_b32t2_blocks, block_num);
+            Quantization::DequantizeRow_Q8_B32T2(vec.data(),
+                (const BlockQ8_B32T2*)row_data, block_num);
             break;
         case ElementType::Q6_B64T1:
-            q6_b64t1_blocks = (const BlockQ6_B64T1*)row_data;
             block_num = this->bytes_per_row / sizeof(BlockQ6_B64T1);
-            Quantization::DequantizeRow_Q6_B64T1(vec.data(), q6_b64t1_blocks, block_num);
+            Quantization::DequantizeRow_Q6_B64T1(vec.data(),
+                (const BlockQ6_B64T1*)row_data, block_num);
             break;
-        case ElementType::Q5:
-            q5_blocks = (const BlockQ5_B32T1*)row_data;
+        case ElementType::Q5_B32T1:
             block_num = this->bytes_per_row / sizeof(BlockQ5_B32T1);
-            Quantization::DequantizeRow_Q5(vec.data(), q5_blocks, block_num);
+            Quantization::DequantizeRow_Q5(vec.data(),
+                (const BlockQ5_B32T1*)row_data, block_num);
+            break;
+        case ElementType::Q5_B64T1:
+            block_num = this->bytes_per_row / sizeof(BlockQ5_B64T1);
+            Quantization::DequantizeRow_Q5_B64T1(vec.data(),
+                (const BlockQ5_B64T1*)row_data, block_num);
             break;
         case ElementType::Q4_B16:
-            q4b16_blocks = (const BlockQ4_B16*)row_data;
             block_num = this->bytes_per_row / sizeof(BlockQ4_B16);
-            Quantization::DequantizeRow_Q4_B16(vec.data(), q4b16_blocks, block_num);
+            Quantization::DequantizeRow_Q4_B16(vec.data(),
+                (const BlockQ4_B16*)row_data, block_num);
             break;
         case ElementType::Q4_B32T1A:
         case ElementType::Q4_B32T1B:
-            q4b32t1_blocks = (const BlockQ4_B32T1*)row_data;
             block_num = this->bytes_per_row / sizeof(BlockQ4_B32T1);
-            Quantization::DequantizeRow_Q4_B32T1(vec.data(), q4b32t1_blocks, block_num);
+            Quantization::DequantizeRow_Q4_B32T1(vec.data(),
+                (const BlockQ4_B32T1*)row_data, block_num);
+            break;
+        case ElementType::Q4_B64T1:
+            block_num = this->bytes_per_row / sizeof(BlockQ4_B64T1);
+            Quantization::DequantizeRow_Q4_B64T1(vec.data(),
+                (const BlockQ4_B64T1*)row_data, block_num);
             break;
         case ElementType::Q3H_B64T1:
-            q3h_b64t1_blocks = (const BlockQ3H_B64T1*)row_data;
             block_num = this->bytes_per_row / sizeof(BlockQ3H_B64T1);
-            Quantization::DequantizeRow_Q3H_B64T1(vec.data(), q3h_b64t1_blocks, block_num);
+            Quantization::DequantizeRow_Q3H_B64T1(vec.data(),
+                (const BlockQ3H_B64T1*)row_data, block_num);
             break;
         case ElementType::Q3_B32T1A:
         case ElementType::Q3_B32T1B:
-            q3b32t1_blocks = (const BlockQ3_B32T1*)row_data;
             block_num = this->bytes_per_row / sizeof(BlockQ3_B32T1);
-            Quantization::DequantizeRow_Q3_B32T1(vec.data(), q3b32t1_blocks, block_num);
+            Quantization::DequantizeRow_Q3_B32T1(vec.data(),
+                (const BlockQ3_B32T1*)row_data, block_num);
             break;
         case ElementType::Q2_B32T1A:
         case ElementType::Q2_B32T1B:
-            q2b32t1_blocks = (const BlockQ2_B32T1*)row_data;
             block_num = this->bytes_per_row / sizeof(BlockQ2_B32T1);
-            Quantization::DequantizeRow_Q2_B32T1(vec.data(), q2b32t1_blocks, block_num);
+            Quantization::DequantizeRow_Q2_B32T1(vec.data(),
+                (const BlockQ2_B32T1*)row_data, block_num);
             break;
         default:
             LogError("Element type %d has not been handled yet.", this->data_type);

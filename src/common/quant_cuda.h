@@ -33,8 +33,8 @@ public:
     static __host__ __device__ void DequantizeQ6_B64T1(TargetType &v1, TargetType &v2,
         TargetType &v3, TargetType &v4, const BlockQ6_B64T1 *block, int r = 0)
     {
-        const float scale = (float)*(half*)&block->scale;
-        const float base = (float)*(half*)&block->base;
+        const float scale = (float)*(inferflow_fp16*)&block->scale;
+        const float base = (float)*(inferflow_fp16*)&block->base;
         const uint8_t qh = block->data_h[r];
         const uint16_t qd = *(const uint16_t*)(block->data + 2 * r);
 
@@ -53,8 +53,8 @@ public:
     static __host__ __device__ void DequantizeQ5(TargetType &v1, TargetType &v2,
         const BlockQ5_B32T1 *block, int r = 0)
     {
-        const float scale = (float)*(half*)block->scale;
-        const float base = (float)*(half*)block->base;
+        const float scale = (float)*(inferflow_fp16*)block->scale;
+        const float base = (float)*(inferflow_fp16*)block->base;
         const uint32_t qh = *(const uint32_t*)block->h_data;
 
         const uint8_t xh_1 = (qh >> (r +  0)) & 0x01;
@@ -65,6 +65,26 @@ public:
 
         v1 = (TargetType)(x1 * scale + base);
         v2 = (TargetType)(x2 * scale + base);
+    }
+
+    template <typename TargetType>
+    static __host__ __device__ void DequantizeQ5_B64T1(TargetType &v1, TargetType &v2,
+        TargetType &v3, TargetType &v4, const BlockQ5_B64T1 *block, int r = 0)
+    {
+        const float scale = (float)*(inferflow_fp16*)&block->scale;
+        const float base = (float)*(inferflow_fp16*)&block->base;
+        const uint8_t qh = block->data_h[r / 2] >> (r % 2 * 4);
+        const uint16_t qd = *(const uint16_t*)(block->data + 2 * r);
+
+        const int x1 = ((qd & 0x000F)) | ((qh & 0x01) << 4);
+        const int x2 = ((qd & 0x00F0) >> 4) | ((qh & 0x02) << 3);
+        const int x3 = ((qd & 0x0F00) >> 8) | ((qh & 0x04) << 2);
+        const int x4 = ((qd & 0xF000) >> 12) | ((qh & 0x08) << 1);
+
+        v1 = (TargetType)(x1 * scale + base);
+        v2 = (TargetType)(x2 * scale + base);
+        v3 = (TargetType)(x3 * scale + base);
+        v4 = (TargetType)(x4 * scale + base);
     }
 
     template <typename TargetType>
@@ -93,6 +113,25 @@ public:
 
         v1 = (TargetType)(x1 * scale + base);
         v2 = (TargetType)(x2 * scale + base);
+    }
+
+    template <typename TargetType>
+    static __host__ __device__ void DequantizeQ4_B64T1(TargetType &v1, TargetType &v2,
+        TargetType &v3, TargetType &v4, const BlockQ4_B64T1 *block, int r = 0)
+    {
+        const float scale = (float)*(inferflow_fp16*)&block->scale;
+        const float base = (float)*(inferflow_fp16*)&block->base;
+        const uint16_t qd = *(const uint16_t*)(block->data + 2 * r);
+
+        const int x1 = (qd & 0x000F);
+        const int x2 = (qd & 0x00F0) >> 4;
+        const int x3 = (qd & 0x0F00) >> 8;
+        const int x4 = (qd & 0xF000) >> 12;
+
+        v1 = (TargetType)(x1 * scale + base);
+        v2 = (TargetType)(x2 * scale + base);
+        v3 = (TargetType)(x3 * scale + base);
+        v4 = (TargetType)(x4 * scale + base);
     }
 
     // r: [0, 15]

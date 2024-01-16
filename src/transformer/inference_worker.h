@@ -187,7 +187,7 @@ protected:
 
     DeviceTensor* CalculateProductKQ(const CurQKV &cur_qkv, const QueryProcInput &query,
         LayerKVCache &layer_kv_cache, const InputKV *input_kv, const AttentionParams &params,
-        int q_idx);
+        int q_idx, float kq_scale = 1.0f);
     //void GetKFromCache(DeviceTensor &sub_k, LayerKVCache &layer_kv_cache, bool is_cross_attn);
 
     DeviceTensor* DistributeAndMergeTensors(const DeviceTensor *tensor,

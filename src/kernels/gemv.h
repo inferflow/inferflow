@@ -866,6 +866,80 @@ __global__ void GemvHalf_AX_Q6_B64T1_Kernel(half * __restrict__ Y,
 }
 
 // Y = A*X (A: M*N, X: N*1, Y: M*1)
+__global__ void GemvHalf_AX_Q5_B64T1_Kernel(half * __restrict__ Y,
+    const uint8_t * __restrict__ A, const half * __restrict__ X,
+    int M, int N)
+{
+    const int stride = 32;
+    const int block_capacity = Q5_B64_CAPACITY;
+    const int quant_block_num_per_row = N / block_capacity;
+    int tid = threadIdx.x;
+    int row_idx = blockIdx.y * blockDim.y + threadIdx.y;
+    int lane_id = threadIdx.x % WARP_SIZE;
+    const BlockQ5_B64T1 *block_array = reinterpret_cast<const BlockQ5_B64T1*>(A);
+    const Float32 *X64 = reinterpret_cast<const Float32*>(X);
+
+    if (row_idx >= M) {
+        return;
+    }
+
+    half arr_a[block_capacity];
+    float sum = 0;
+    if (threadIdx.x < quant_block_num_per_row)
+    {
+        int iterations = max(1, (quant_block_num_per_row + blockDim.x - 1) / blockDim.x);
+        const BlockQ5_B64T1 *row_data = block_array + row_idx * quant_block_num_per_row;
+
+#       pragma unroll
+        for (int idx = 0; idx < iterations; idx++)
+        {
+            int offset = (idx * blockDim.x + threadIdx.x % blockDim.x);
+            if (offset < quant_block_num_per_row)
+            {
+                BlockQ5_B64T1 a_block = row_data[offset];
+                Float32 x_val = X64[offset];
+                Quantization::DequantizeQ5_B64T1(arr_a, &a_block);
+                const half *arr_x = (const half*)&x_val;
+
+#               pragma unroll
+                for (int idx = 0; idx < block_capacity; idx++) {
+                    sum += (float)arr_a[idx] * (float)arr_x[idx];
+                }
+            }
+        }
+    }
+
+    sum = WarpReduceSum(sum, WARP_SIZE);
+    if (blockDim.x <= WARP_SIZE)
+    {
+        if (tid == 0) {
+            Y[row_idx] = (half)sum;
+        }
+        return;
+    }
+
+    const int MAX_WARPS_PER_ROW = 32;
+    const int MAX_BLOCK_DIM_Y = 16;
+    static __shared__ float warp_level_sums[MAX_BLOCK_DIM_Y][MAX_WARPS_PER_ROW];
+    const int warp_id = threadIdx.x / WARP_SIZE;
+    if (lane_id == 0) {
+        warp_level_sums[threadIdx.y][warp_id] = sum;
+    }
+
+    __syncthreads();
+
+    sum = (threadIdx.x >= blockDim.x / WARP_SIZE) ? 0.0f
+        : warp_level_sums[threadIdx.y][lane_id];
+
+    if (warp_id == 0) {
+        sum = WarpReduceSum(sum, blockDim.x / WARP_SIZE);
+    }
+    if (tid == 0) {
+        Y[row_idx] = (half)sum;
+    }
+}
+
+// Y = A*X (A: M*N, X: N*1, Y: M*1)
 __global__ void GemvHalf_AX_Q5_Kernel(half * __restrict__ Y,
     const uint8_t * __restrict__ A, const half * __restrict__ X,
     int M, int N)
@@ -908,6 +982,80 @@ __global__ void GemvHalf_AX_Q5_Kernel(half * __restrict__ Y,
 
 #               pragma unroll
                 for (int idx = 0; idx < stride; idx++) {
+                    sum += (float)arr_a[idx] * (float)arr_x[idx];
+                }
+            }
+        }
+    }
+
+    sum = WarpReduceSum(sum, WARP_SIZE);
+    if (blockDim.x <= WARP_SIZE)
+    {
+        if (tid == 0) {
+            Y[row_idx] = (half)sum;
+        }
+        return;
+    }
+
+    const int MAX_WARPS_PER_ROW = 32;
+    const int MAX_BLOCK_DIM_Y = 16;
+    static __shared__ float warp_level_sums[MAX_BLOCK_DIM_Y][MAX_WARPS_PER_ROW];
+    const int warp_id = threadIdx.x / WARP_SIZE;
+    if (lane_id == 0) {
+        warp_level_sums[threadIdx.y][warp_id] = sum;
+    }
+
+    __syncthreads();
+
+    sum = (threadIdx.x >= blockDim.x / WARP_SIZE) ? 0.0f
+        : warp_level_sums[threadIdx.y][lane_id];
+
+    if (warp_id == 0) {
+        sum = WarpReduceSum(sum, blockDim.x / WARP_SIZE);
+    }
+    if (tid == 0) {
+        Y[row_idx] = (half)sum;
+    }
+}
+
+// Y = A*X (A: M*N, X: N*1, Y: M*1)
+__global__ void GemvHalf_AX_Q4_B64T1_Kernel(half * __restrict__ Y,
+    const uint8_t * __restrict__ A, const half * __restrict__ X,
+    int M, int N)
+{
+    const int stride = 32;
+    const int block_capacity = Q4_B64_CAPACITY;
+    const int quant_block_num_per_row = N / block_capacity;
+    int tid = threadIdx.x;
+    int row_idx = blockIdx.y * blockDim.y + threadIdx.y;
+    int lane_id = threadIdx.x % WARP_SIZE;
+    const BlockQ4_B64T1 *block_array = reinterpret_cast<const BlockQ4_B64T1*>(A);
+    const Float32 *X64 = reinterpret_cast<const Float32*>(X);
+
+    if (row_idx >= M) {
+        return;
+    }
+
+    half arr_a[block_capacity];
+    float sum = 0;
+    if (threadIdx.x < quant_block_num_per_row)
+    {
+        int iterations = max(1, (quant_block_num_per_row + blockDim.x - 1) / blockDim.x);
+        const BlockQ4_B64T1 *row_data = block_array + row_idx * quant_block_num_per_row;
+
+#       pragma unroll
+        for (int idx = 0; idx < iterations; idx++)
+        {
+            int offset = (idx * blockDim.x + threadIdx.x % blockDim.x);
+            if (offset < quant_block_num_per_row)
+            {
+                BlockQ4_B64T1 a_block = row_data[offset];
+                Float32 x_val = X64[offset];
+                Quantization::DequantizeQ4_B64T1(arr_a, &a_block);
+                const half *arr_x = (const half*)&x_val;
+
+#               pragma unroll
+                for (int idx = 0; idx < block_capacity; idx++) {
                     sum += (float)arr_a[idx] * (float)arr_x[idx];
                 }
             }
