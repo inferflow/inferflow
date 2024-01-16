@@ -72,13 +72,14 @@ Below is a comparison between Inferflow and some other inference engines:
 
 ### Models with Predefined Specification Files
 
-Users can serve a model with Inferflow by simply editing a model specification file. We have built [predefined specification files](data/models/) for some popular or representative models. Below is a list of such models.
+Users can serve a model with Inferflow by editing a model specification file. We have built [predefined specification files](data/models/) for some popular or representative models. Below is a list of such models.
 - [X] Aquila (aquila_chat2_34b)
 - [X] Baichuan (baichuan2_7b_chat, baichuan2_13b_chat)
 - [X] BERT (bert-base-multilingual-cased)
 - [X] Bloom (bloomz_3b)
 - [X] Facebook m2m100 (facebook_m2m100_418m)
 - [X] Falcon (falcon_7b_instruct, falcon_40b_instruct)
+- [X] Internlm (internlm-chat-20b)
 - [X] LLAMA2 (llama2_7b, llama2_7b_chat, llama2_13b_chat)
 - [X] Mistral (mistral_7b_instruct)
 - [X] Open LLAMA (open_llama_3b)
@@ -158,4 +159,4 @@ cd inferflow
   ```
 
 ### Acknowledgements
-The CPU inference part of Inferflow is based on the amazing [ggml](https://github.com/ggerganov/ggml) library and [llama.cpp](https://github.com/ggerganov/llama.cpp). The FP16 data type in the CPU-only version of Inferflow is from the [Half-precision floating-point library](https://half.sourceforge.net/). We express our sincere gratitude to the maintainers and implementers of these source codes and tools.
+Inferflow is inspired by the awesome projects of [llama.cpp](https://github.com/ggerganov/llama.cpp) and [llama2.c](https://github.com/karpathy/llama2.c). The CPU inference part of Inferflow is based on the [ggml](https://github.com/ggerganov/ggml) library. The FP16 data type in the CPU-only version of Inferflow is from the [Half-precision floating-point library](https://half.sourceforge.net/). We express our sincere gratitude to the maintainers and implementers of these source codes and tools.
