@@ -1,0 +1,48 @@
+{
+    "config_file": "config.json",
+    "model_files":
+    [
+        "model.safetensors.index.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors"
+    ],
+    "model_file_format": "safetensors",
+
+    "tokenizer_files": ["tokenizer.json", "special_tokens_map.json"],
+    "tokenization_algorithm": "bpe",
+    "token_bytes_mapping": 1,
+    "generation_config": "generation_config.json",
+
+    "network_structure":
+    {
+        "type": "transformer.decoder_only",
+        "normalization_function": "std",
+        "activation_function": "gelu",
+        "position_embedding": "rope",
+        
+        "qk_column_order": 2,
+        "is_parallel_attn": true,
+
+        "tensor_name_prefix": "model.",
+        "tensor_name_mapping":
+        {
+            "embed_tokens.weight": "dec.token_embeddings.weight",
+            "layers.{i}.input_layernorm.weight": "dec.{i}.self_attn.pre_norm.weight",
+            "layers.{i}.input_layernorm.bias": "dec.{i}.self_attn.pre_norm.bias",
+            "layers.{i}.self_attn.q_proj.weight": "dec.{i}.self_attn.wq.weight",
+            "layers.{i}.self_attn.q_proj.bias": "dec.{i}.self_attn.wq.bias",
+            "layers.{i}.self_attn.k_proj.weight": "dec.{i}.self_attn.wk.weight",
+            "layers.{i}.self_attn.k_proj.bias": "dec.{i}.self_attn.wk.bias",
+            "layers.{i}.self_attn.v_proj.weight": "dec.{i}.self_attn.wv.weight",
+            "layers.{i}.self_attn.v_proj.bias": "dec.{i}.self_attn.wv.bias",
+            "layers.{i}.self_attn.dense.weight": "dec.{i}.self_attn.wo.weight",
+            "layers.{i}.self_attn.dense.bias": "dec.{i}.self_attn.wo.bias",
+            "layers.{i}.mlp.fc1.weight": "dec.{i}.feed_forward.w1.weight",
+            "layers.{i}.mlp.fc1.bias": "dec.{i}.feed_forward.w1.bias",
+            "layers.{i}.mlp.fc2.weight": "dec.{i}.feed_forward.w2.weight",
+            "layers.{i}.mlp.fc2.bias": "dec.{i}.feed_forward.w2.bias",
+            "final_layernorm.weight": "dec.output_norm.weight",
+            "final_layernorm.bias": "dec.output_norm.bias"
+        }
+    }
+}
