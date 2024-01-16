@@ -60,8 +60,11 @@ int TensorCommon::BlockSize(ElementType etype)
         case ElementType::Q6_B64T1:
             block_size = sizeof(BlockQ6_B64T1);
             break;
-        case ElementType::Q5:
+        case ElementType::Q5_B32T1:
             block_size = sizeof(BlockQ5_B32T1);
+            break;
+        case ElementType::Q5_B64T1:
+            block_size = sizeof(BlockQ5_B64T1);
             break;
         case ElementType::Q4_B16:
             block_size = sizeof(BlockQ4_B16);
@@ -72,6 +75,9 @@ int TensorCommon::BlockSize(ElementType etype)
             break;
         case ElementType::Q4_B32T2:
             block_size = sizeof(BlockQ4_B32T2);
+            break;
+        case ElementType::Q4_B64T1:
+            block_size = sizeof(BlockQ4_B64T1);
             break;
         case ElementType::Q3H_B64T1:
             block_size = sizeof(BlockQ3H_B64T1);
@@ -111,8 +117,11 @@ int TensorCommon::BlockCapacity(ElementType etype)
     case ElementType::Q6_B64T1:
         block_capacity = Q6_B64_CAPACITY;
         break;
-    case ElementType::Q5:
+    case ElementType::Q5_B32T1:
         block_capacity = Q5B32_CAPACITY;
+        break;
+    case ElementType::Q5_B64T1:
+        block_capacity = Q5_B64_CAPACITY;
         break;
     case ElementType::Q4_B16:
         block_capacity = Q4B16_CAPACITY;
@@ -121,6 +130,9 @@ int TensorCommon::BlockCapacity(ElementType etype)
     case ElementType::Q4_B32T1B:
     case ElementType::Q4_B32T2:
         block_capacity = Q4B32_CAPACITY;
+        break;
+    case ElementType::Q4_B64T1:
+        block_capacity = Q4_B64_CAPACITY;
         break;
     case ElementType::Q3H_B64T1:
         block_capacity = Q3H_B64_CAPACITY;
@@ -156,8 +168,9 @@ void TensorCommon::InitElementTypeMap(ElementTypeMap &type_map)
     type_map["f32"] = ElementType::F32;
     type_map["fp16"] = ElementType::F16;
     type_map["f16"] = ElementType::F16;
-    type_map["q8"] = ElementType::Q8_B32T1;
+    type_map["q8"] = ElementType::Q8_B32T2;
     type_map["q6"] = ElementType::Q6_B64T1;
+    type_map["q5"] = ElementType::Q5_B32T1;
     type_map["q4"] = ElementType::Q4_B32T1A;
     type_map["q3h"] = ElementType::Q3H_B64T1;
     type_map["q3"] = ElementType::Q3_B32T1B;
@@ -167,12 +180,14 @@ void TensorCommon::InitElementTypeMap(ElementTypeMap &type_map)
     type_map["q8_b32t1"] = ElementType::Q8_B32T1;
     type_map["q8_b32t2"] = ElementType::Q8_B32T2;
     type_map["q6_b64t1"] = ElementType::Q6_B64T1;
-    type_map["q5"] = ElementType::Q5;
+    type_map["q5_b32t1"] = ElementType::Q5_B32T1;
+    type_map["q5_b64t1"] = ElementType::Q5_B64T1;
     type_map["q4_b16"] = ElementType::Q4_B16;
     type_map["q4_b32t1a"] = ElementType::Q4_B32T1A;
     type_map["q4_b32t1b"] = ElementType::Q4_B32T1B;
     type_map["q4_b32t1"] = ElementType::Q4_B32T1A;
     type_map["q4_b32t2"] = ElementType::Q4_B32T2;
+    type_map["q4_b64t1"] = ElementType::Q4_B64T1;
     type_map["q3h_b64t1"] = ElementType::Q3H_B64T1;
     type_map["q3_b32t1a"] = ElementType::Q3_B32T1A;
     type_map["q3_b32t1b"] = ElementType::Q3_B32T1B;
@@ -194,12 +209,14 @@ void TensorCommon::InitElementTypeMap(ElementTypeNameMap &type_name_map)
     type_name_map[ElementType::Q8_B32T1] = "q8_b32t1";
     type_name_map[ElementType::Q8_B32T2] = "q8_b32t2";
     type_name_map[ElementType::Q6_B64T1] = "q6_b64t1";
-    type_name_map[ElementType::Q5] = "q5";
+    type_name_map[ElementType::Q5_B32T1] = "q5_b32t1";
+    type_name_map[ElementType::Q5_B64T1] = "q5_b64t1";
     type_name_map[ElementType::Q4_B16] = "q4_b16";
     type_name_map[ElementType::Q4_B32P8] = "q4_b32p8";
     type_name_map[ElementType::Q4_B32T1A] = "q4_b32t1a";
     type_name_map[ElementType::Q4_B32T1B] = "q4_b32t1b";
     type_name_map[ElementType::Q4_B32T2] = "q4_b32t2";
+    type_name_map[ElementType::Q4_B64T1] = "q4_b64t1";
     type_name_map[ElementType::Q3H_B64T1] = "q3h_b64t1";
     type_name_map[ElementType::Q3_B32T1A] = "q3_b32t1a";
     type_name_map[ElementType::Q3_B32T1B] = "q3_b32t1b";

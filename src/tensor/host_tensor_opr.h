@@ -20,6 +20,7 @@ struct PosEmbeddingParams
     int mode = 0;
     int order_type = 0;
     float rope_theta = 10000.0f;
+    float partial_rotary_factor = 1.0f;
 };
 
 typedef map<string, TensorNormAlg, StrLessNoCase> TensorNormAlgMap;

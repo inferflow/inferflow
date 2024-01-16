@@ -32,6 +32,7 @@ public:
     ElementType data_type_host = ElementType::Auto;
     ElementType data_type_device = ElementType::Auto;
     int data_source = -1;
+    int offset_in_data_source = 0;
 
     TensorSpec()
     {
@@ -52,6 +53,7 @@ public:
         data_type_host = ElementType::Auto;
         data_type_device = ElementType::Auto;
         data_source = -1;
+        offset_in_data_source = 0;
     }
 };
 

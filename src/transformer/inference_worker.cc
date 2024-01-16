@@ -58,8 +58,19 @@ bool GpuInferenceWorker::Init(int id, int worker_num, int group_id, int group_nu
     int max_head_num = max(hparams.decoder_heads, hparams.encoder_heads);
     soft_max_aux_tensor_.New(ElementType::F16, max_head_num * max_context_len);
 
+    int fp16_size = sizeof(inferflow_fp16);
+    bool is_last = group_id_ + 1 >= group_num_;
+
     aux_memory_size_ = 0;
-    int mem_size = 160 * 1024 * 1024; //160MB
+    uint64_t mem_size = 160 * 1024 * 1024; //160MB
+    if (is_last)
+    {
+        uint64_t mem_size2 = model_spec.max_context_len * hparams.vocab_size * fp16_size;
+        //LogKeyInfo("mem_size: %d, mem_size2: %d", mem_size, mem_size2);
+        if (mem_size2 > mem_size / 2) {
+            mem_size = mem_size / 2 + mem_size2;
+        }
+    }
     for (int idx = 0; idx < LOCAL_DEVICE_HEAP_NUM; idx++) {
         local_device_heaps_[idx].Init(mem_size);
     }
@@ -69,16 +80,17 @@ bool GpuInferenceWorker::Init(int id, int worker_num, int group_id, int group_nu
     local_device_heap_.Init(mem_size);
     aux_memory_size_ += mem_size;
 
-    mem_size = 160 * 1000 * 1000; //160MB
-    int fp16_size = sizeof(inferflow_fp16);
-    bool is_last = group_id_ + 1 >= group_num_;
+    mem_size = 160 * 1024 * 1024; //160MB
     if (model_spec.max_input_len > 1024) {
         mem_size *= ((model_spec.max_context_len + 1023) / 1024);
     }
     if (is_last)
     {
-        int mem_size2 = 2 * model_spec.max_context_len * hparams.vocab_size * fp16_size;
-        mem_size += max(mem_size / 2, mem_size2);
+        uint64_t mem_size2 = model_spec.max_context_len * hparams.vocab_size * fp16_size;
+        //LogKeyInfo("mem_size: %d, mem_size2: %d", mem_size, mem_size2);
+        if (mem_size2 > mem_size / 2) {
+            mem_size = mem_size / 2 + mem_size2;
+        }
     }
     layer_local_device_heap_.Init(mem_size);
     aux_memory_size_ += mem_size;
@@ -416,6 +428,7 @@ DeviceTensor* GpuInferenceWorker::ProcessPreLayer(const DeviceTensor *layer_inpu
         pos_embd_params.order_type = model_ptr_->spec.qk_column_order;
         pos_embd_params.alg = model_spec.pos_embedding_alg;
         pos_embd_params.rope_theta = model_spec.rope_theta;
+        pos_embd_params.partial_rotary_factor = model_spec.partial_rotary_factor;
 
         pos_embd_params.device_token_id_array = device_token_id_array_;
         for (const auto &query : query_list_)
@@ -540,11 +553,12 @@ DeviceTensor* GpuInferenceWorker::ProcessPostLayer(DeviceTensor *layer_input,
                 norm2->ne[0], norm2->ne[1], 0, true, 0);
             TensorOpr::Quantize(*norm2_quant, *norm2);
             ret = MatrixMultiplication(*out, *norm2_quant, *device_net->output_quant,
-                is_b_column_major);
+                is_b_column_major, device_net->output_b);
         }
         else
         {
-            ret = MatrixMultiplication(*out, *norm2, *device_net->output, is_b_column_major);
+            ret = MatrixMultiplication(*out, *norm2, *device_net->output,
+                is_b_column_major, device_net->output_b);
         }
 
         if (config_->debug.is_study_mode)
@@ -816,7 +830,7 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer(int layer_idx,
     }
     Macro_RetIf(nullptr, ff_out == nullptr);
 
-    if (config_->debug.is_study_mode && (layer_idx == layer_idx_for_study_ || layer_idx >= 29)) {
+    if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_) {
         PrintTensor(ff_out, 8, 8, 8, "ff_out (10700):\n", layer_idx);
     }
 
@@ -825,7 +839,7 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer(int layer_idx,
     Macro_RetIf(nullptr, layer_out == nullptr);
 
     TensorOpr::Add(*layer_out, *ff_out, *att_out);
-    if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_) {
+    if (config_->debug.is_study_mode && (layer_idx == layer_idx_for_study_ || layer_idx >= 29)) {
         PrintTensor(layer_out, 8, 8, 8, "layer_out (10750):\n", layer_idx);
     }
 
@@ -910,6 +924,7 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
     pos_embd_params.order_type = model_ptr_->spec.qk_column_order;
     pos_embd_params.alg = model_spec.pos_embedding_alg;
     pos_embd_params.rope_theta = model_spec.rope_theta;
+    pos_embd_params.partial_rotary_factor = model_spec.partial_rotary_factor;
 
     bool is_alibi = model_spec.pos_embedding_alg == PositionEmbeddingAlg::ALIBI;
     bool is_b_column_major = !config_ex_->is_gpu_tensor_row_major;
@@ -1016,6 +1031,8 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
     }
 
     tm.Start();
+    //kq_scale: reducing the chance of overflow in calculating q*k
+    float kq_scale = is_alibi ? 1.0f : 10.0f;
     bool is_sub_level = true;
     DeviceTensor *kqv_merged = CreateLocalTensor(ElementType::F16,
         token_sub_dim, all_q_token_num, 0, true, heap_idx);
@@ -1040,7 +1057,7 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
 
         TaskMonitor tm_sub;
         DeviceTensor *kq = CalculateProductKQ(cur_qkv, query, *layer_kv_cache,
-            input_kv, params, q_idx);
+            input_kv, params, q_idx, kq_scale);
         Macro_RetIf(attn_out, kq == nullptr);
 
         if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_
@@ -1061,7 +1078,8 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
         //{
         //    UpdatePerfStat(perf_base + 62, tm_sub);
         //}
-        if (config_->debug.show_tensors && layer_idx == layer_idx_for_study_) {
+        if (config_->debug.show_tensors && layer_idx == layer_idx_for_study_)
+        {
             PrintTensor(kq, 8, 4, 4, "kq (10252):\n", layer_idx);
         }
 
@@ -1094,13 +1112,12 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
             //if (config_->debug.show_tensors && layer_idx == layer_idx_for_study_) {
             //    PrintTensor(kq, 8, 2, 2, "kq_mask (10254):\n", layer_idx);
             //}
-            //TensorOpr::SoftMax(*kq, -1, neg_infinity, &soft_max_aux_tensor_);
-            TensorOpr::SoftMax(*kq, q_prefix_len, neg_infinity); //diag-mask and soft-max
+            //TensorOpr::SoftMax(*kq, -1, neg_infinity, kq_scale, &soft_max_aux_tensor_);
+            TensorOpr::SoftMax(*kq, q_prefix_len, neg_infinity, kq_scale); //diag-mask and soft-max
         }
         else
         {
-            //TensorOpr::SoftMax(*kq);
-            TensorOpr::SoftMax(*kq, -1, neg_infinity, &soft_max_aux_tensor_);
+            TensorOpr::SoftMax(*kq, -1, neg_infinity, kq_scale, &soft_max_aux_tensor_);
         }
 
         if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_
@@ -1109,7 +1126,8 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
             UpdatePerfStat(perf_base + 65, tm_sub);
         }
 
-        if (config_->debug.show_tensors && layer_idx == layer_idx_for_study_) {
+        if (config_->debug.show_tensors && layer_idx == layer_idx_for_study_)
+        {
             PrintTensor(kq, 8, 2, 2, "kq_soft_max (10255):\n", layer_idx);
         }
 
@@ -1181,7 +1199,8 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
             is_sub_level, MatrixMulAlg::Alg2);
         Macro_RetIf(attn_out, !is_succ);
 
-        if (config_->debug.show_tensors && layer_idx == layer_idx_for_study_) {
+        if (config_->debug.show_tensors && layer_idx == layer_idx_for_study_)
+        {
             PrintTensor(kqv, 8, 2, 2, "kqv (10262):\n");
         }
 
@@ -1233,6 +1252,11 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
         UpdatePerfStat(perf_base + 70, tm);
     }
 
+    //if (config_->debug.show_tensors && layer_idx == layer_idx_for_study_)
+    //{
+    //    PrintTensor(kqv_merged, 8, 4, 4, "kqv (10267):\n");
+    //}
+
     tm.Start();
     int new_cx = is_b_column_major ? layer.wo.tensor->ne[1] : layer.wo.tensor->ne[0];
     int new_cy = input_q_norm->ne[1];
@@ -1240,9 +1264,10 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
     DeviceTensor *out = CreateLocalTensor(data_type, new_cx, new_cy, 0, true, heap_idx);
     MatrixMultiplicationEx(*out, *kqv_merged, *kqv_merged_quant, layer.wo,
         is_b_column_major, bias);
-    if (layer_idx == layer_idx_for_study_) {
-        //PrintTensor(layer.wo.tensor, 8, 8, 8, "wo:\n");
-        //PrintTensor(out, 8, 8, 8, "self_attn_out (10268):\n");
+    if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_)
+    {
+        PrintTensor(layer.wo.tensor, 8, 8, 8, "wo:\n");
+        PrintTensor(out, 8, 8, 8, "self_attn_out (10268):\n");
     }
 
     if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_
@@ -1350,6 +1375,7 @@ bool GpuInferenceWorker::Attention_CalculateCurQKV(CurQKV &cur_qkv, int layer_id
     pos_embd_params.dims = head_dim;
     pos_embd_params.order_type = model_ptr_->spec.qk_column_order;
     pos_embd_params.rope_theta = model_spec.rope_theta;
+    pos_embd_params.partial_rotary_factor = model_spec.partial_rotary_factor;
 
     bool is_rope = model_spec.pos_embedding_alg == PositionEmbeddingAlg::ROPE;
     bool is_b_column_major = !config_ex_->is_gpu_tensor_row_major;
@@ -1507,7 +1533,7 @@ bool GpuInferenceWorker::Attention_CalculateCurQKV(CurQKV &cur_qkv, int layer_id
 
 DeviceTensor* GpuInferenceWorker::CalculateProductKQ(const CurQKV &cur_qkv,
     const QueryProcInput &query, LayerKVCache &layer_kv_cache, const InputKV *input_kv,
-    const AttentionParams &params, int q_idx)
+    const AttentionParams &params, int q_idx, float kq_scale)
 {
     const auto &model_spec = model_ptr_->spec;
     int layer_idx = params.layer_idx;
@@ -1532,7 +1558,7 @@ DeviceTensor* GpuInferenceWorker::CalculateProductKQ(const CurQKV &cur_qkv,
 
     DeviceTensor *kq = nullptr;
     bool is_succ = true;
-    float scale = 1.0f / sqrtf(float(head_dim));
+    float scale = 1.0f / sqrtf(float(head_dim)) / kq_scale;
     if (params.is_cross_attn)
     {
         DeviceTensor sub_k(false);
@@ -1790,7 +1816,7 @@ DeviceTensor* GpuInferenceWorker::DistributeAndMergeTensors(const DeviceTensor *
     const DeviceTensor *tensor_to_add = tensor;
     if (is_quant_tensor_exchange_ && id_ != 0)
     {
-        DeviceTensor *quant_tensor = CreateLocalTensor(ElementType::Q5, tensor->ne[0],
+        DeviceTensor *quant_tensor = CreateLocalTensor(ElementType::Q8_B32T2, tensor->ne[0],
             tensor->ne[1], tensor->ne[2], true, heap_idx);
         TensorOpr::Quantize(*quant_tensor, *tensor);
         tensor_to_add = quant_tensor;
@@ -1887,7 +1913,7 @@ DeviceTensor* GpuInferenceWorker::MergeTensors(const vector<TensorWithDeviceId> 
 
     DeviceTensor *merged_tensor = CreateLocalTensor(ElementType::F16,
         cx, cy, 1, false, heap_idx);
-    DeviceTensor *quant_src_tensor = CreateLocalTensor(ElementType::Q5,
+    DeviceTensor *quant_src_tensor = CreateLocalTensor(ElementType::Q8_B32T2,
         cx0, cy, 1, true, heap_idx);
     DeviceTensor *dequant_tensor = CreateLocalTensor(ElementType::F16,
         cx0, cy, 1, true, heap_idx);

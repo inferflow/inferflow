@@ -25,10 +25,21 @@ if (USE_CUDA)
     set_property(TARGET convert_tokenizer_data PROPERTY CUDA_ARCHITECTURES ${LLAMA_NVCC_ARCHS_SUPPORTED})
 endif()
 
+add_executable(
+    perplexity
+    perplexity.cc
+)
+target_link_libraries(perplexity PRIVATE inferflow ${CMAKE_THREAD_LIBS_INIT})
+target_compile_features(perplexity PRIVATE cxx_std_11)
+if (USE_CUDA)
+    set_property(TARGET perplexity PROPERTY CUDA_ARCHITECTURES ${LLAMA_NVCC_ARCHS_SUPPORTED})
+endif()
+
 set(executables_for_install
     inferflow_client
     llm_inference
     convert_tokenizer_data
+    perplexity
 )
 
 install(TARGETS ${executables_for_install} DESTINATION ${CMAKE_INSTALL_PREFIX} COMPONENT inferflow)

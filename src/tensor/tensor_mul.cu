@@ -670,8 +670,11 @@ bool TensorMul::Gemv_AX_QuantHalf(DeviceTensor &Y, const DeviceTensor &A,
     case ElementType::Q6_B64T1:
         ret = Gemv_AX_Q6_B64T1(Y, A, X);
         break;
-    case ElementType::Q5:
-        ret = Gemv_AX_Q5(Y, A, X);
+    case ElementType::Q5_B32T1:
+        ret = Gemv_AX_Q5_B32T1(Y, A, X);
+        break;
+    case ElementType::Q5_B64T1:
+        ret = Gemv_AX_Q5_B64T1(Y, A, X);
         break;
     case ElementType::Q4_B16:
         ret = Gemv_AX_Q4B16(Y, A, X);
@@ -679,6 +682,9 @@ bool TensorMul::Gemv_AX_QuantHalf(DeviceTensor &Y, const DeviceTensor &A,
     case ElementType::Q4_B32T1A:
     case ElementType::Q4_B32T1B:
         ret = Gemv_AX_Q4_B32T1(Y, A, X);
+        break;
+    case ElementType::Q4_B64T1:
+        ret = Gemv_AX_Q4_B64T1(Y, A, X);
         break;
     case ElementType::Q3H_B64T1:
         ret = Gemv_AX_Q3H_B64T1(Y, A, X);
@@ -717,8 +723,11 @@ bool TensorMul::Gemv_AX_QuantQ8(DeviceTensor &Y, const DeviceTensor &A,
     case ElementType::Q6_B64T1:
         //ret = Gemv_AX8_Q6_B64T1(Y, A, X);
         break;
-    case ElementType::Q5:
-        //ret = Gemv_AX8_Q8Q5(Y, A, X);
+    case ElementType::Q5_B32T1:
+        //ret = Gemv_AX8_Q5_B32T1(Y, A, X);
+        break;
+    case ElementType::Q5_B64T1:
+        //ret = Gemv_AX8_Q5_B64T1(Y, A, X);
         break;
     case ElementType::Q4_B16:
         //ret = Gemv_AX8_Q4_B16(Y, A, X);
@@ -726,6 +735,9 @@ bool TensorMul::Gemv_AX_QuantQ8(DeviceTensor &Y, const DeviceTensor &A,
     case ElementType::Q4_B32T1A:
     case ElementType::Q4_B32T1B:
         //ret = Gemv_AX8_Q4_B32T1(Y, A, X);
+        break;
+    case ElementType::Q4_B64T1:
+        //ret = Gemv_AX8_Q4_B64T1(Y, A, X);
         break;
     case ElementType::Q3H_B64T1:
         //ret = Gemv_AX8_Q3H_B64T1(Y, A, X);
@@ -916,7 +928,7 @@ bool TensorMul::Gemv_AX_Q6_B64T1(DeviceTensor &Y, const DeviceTensor &A, const D
 }
 
 //static
-bool TensorMul::Gemv_AX_Q5(DeviceTensor &Y, const DeviceTensor &A,
+bool TensorMul::Gemv_AX_Q5_B32T1(DeviceTensor &Y, const DeviceTensor &A,
     const DeviceTensor &X)
 {
     int cy = A.Rows(), cx = A.Columns();
@@ -933,6 +945,26 @@ bool TensorMul::Gemv_AX_Q5(DeviceTensor &Y, const DeviceTensor &A,
     const half *x_data = X.data_f16();
     half *y_data = Y.data_f16();
     GemvHalf_AX_Q5_Kernel<<<grid, block>>>(y_data, a_data, x_data, cy, cx);
+    return true;
+}
+
+bool TensorMul::Gemv_AX_Q5_B64T1(DeviceTensor &Y, const DeviceTensor &A, const DeviceTensor &X)
+{
+    int cy = A.Rows(), cx = A.Columns();
+    //2048 = 32 * 64 (i.e., warp size * Q5_B64_CAPACITY)
+    bool ret = GemvCheckN(cx, 2048, Q5_B64_CAPACITY);
+    Macro_RetFalseIf(!ret);
+
+    dim3 block, grid;
+    block.x = cx % 8192 == 0 ? 128 : (cx % 4096 == 0 ? 64 : 32);
+    block.y = 128 / block.x;
+    grid.x = 1;
+    grid.y = (cy + block.y - 1) / block.y;
+
+    const uint8_t *a_data = (const uint8_t*)A.data;
+    const half *x_data = X.data_f16();
+    half *y_data = Y.data_f16();
+    GemvHalf_AX_Q5_B64T1_Kernel<<<grid, block>>>(y_data, a_data, x_data, cy, cx);
     return true;
 }
 
@@ -973,6 +1005,26 @@ bool TensorMul::Gemv_AX_Q4_B32T1(DeviceTensor &Y, const DeviceTensor &A, const D
     const half *x_data = X.data_f16();
     half *y_data = Y.data_f16();
     GemvHalf_AX_Q4_B32T1_Kernel<<<grid, block>>>(y_data, a_data, x_data, cy, cx);
+    return true;
+}
+
+bool TensorMul::Gemv_AX_Q4_B64T1(DeviceTensor &Y, const DeviceTensor &A, const DeviceTensor &X)
+{
+    int cy = A.Rows(), cx = A.Columns();
+    //2048 = 32 * 64 (i.e., warp size * Q4_B64_CAPACITY)
+    bool ret = GemvCheckN(cx, 2048, Q4_B64_CAPACITY);
+    Macro_RetFalseIf(!ret);
+
+    dim3 block, grid;
+    block.x = cx % 8192 == 0 ? 128 : (cx % 4096 == 0 ? 64 : 32);
+    block.y = 128 / block.x;
+    grid.x = 1;
+    grid.y = (cy + block.y - 1) / block.y;
+
+    const uint8_t *a_data = (const uint8_t*)A.data;
+    const half *x_data = X.data_f16();
+    half *y_data = Y.data_f16();
+    GemvHalf_AX_Q4_B64T1_Kernel<<<grid, block>>>(y_data, a_data, x_data, cy, cx);
     return true;
 }
 

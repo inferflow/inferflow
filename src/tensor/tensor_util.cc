@@ -926,7 +926,7 @@ ggml_type TensorUtil::ToGgmlType(ElementType t)
     case ElementType::Q8_B32T2:
         return GGML_TYPE_Q8_0;
         break;
-    case ElementType::Q5:
+    case ElementType::Q5_B32T1:
         return GGML_TYPE_Q5_1;
         break;
     case ElementType::Q4_B32T1A:
@@ -953,7 +953,7 @@ ElementType TensorUtil::ToElementType(ggml_type t)
         return ElementType::Q8_B32T2;
         break;
     case GGML_TYPE_Q5_1:
-        return ElementType::Q5;
+        return ElementType::Q5_B32T1;
         break;
     case GGML_TYPE_Q4_1:
         return ElementType::Q4_B32T1A;

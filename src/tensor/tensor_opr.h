@@ -85,10 +85,10 @@ public:
 
     static bool SoftMax(DeviceTensor &A,
         int diag_mask_prefix_len = -1, float mask_value = -1e9f,
-        DeviceTensor *aux_tensor = nullptr);
+        float scale = 1.0f, DeviceTensor *aux_tensor = nullptr);
     static bool SoftMax(DeviceTensor &B, const DeviceTensor &A,
         int diag_mask_prefix_len = -1, float mask_value = -1e9f,
-        DeviceTensor *aux_tensor = nullptr);
+        float scale = 1.0f, DeviceTensor *aux_tensor = nullptr);
 
     // Elementwise binary operations
     static bool Scale(DeviceTensor &A, float scale);
@@ -138,7 +138,8 @@ protected:
     static bool SoftMax_Alg1(DeviceTensor &B, const DeviceTensor &A,
         DeviceTensor *aux_tensor = nullptr);
     static bool SoftMax_Alg2(DeviceTensor &B, const DeviceTensor &A,
-        int diag_mask_prefix_len = -1, float mask_value = -1e9f);
+        int diag_mask_prefix_len = -1, float mask_value = -1e9f,
+        float scale = 1.0f);
 
     //A: source; B: target
     static bool IsCompatible_AB(const DeviceTensor &A,
@@ -154,9 +155,11 @@ protected:
     static bool QuantizeQ8_B32T1(DeviceTensor &B, const DeviceTensor &A, int alg_id = 0);
     static bool QuantizeQ8_B32T2(DeviceTensor &B, const DeviceTensor &A, int alg_id = 0);
     static bool QuantizeQ6_B64T1(DeviceTensor &B, const DeviceTensor &A);
-    static bool QuantizeQ5(DeviceTensor &B, const DeviceTensor &A);
+    static bool QuantizeQ5_B32T1(DeviceTensor &B, const DeviceTensor &A);
+    static bool QuantizeQ5_B64T1(DeviceTensor &B, const DeviceTensor &A);
     static bool QuantizeQ4B16(DeviceTensor &B, const DeviceTensor &A);
     static bool QuantizeQ4_B32T1(DeviceTensor &B, const DeviceTensor &A);
+    static bool QuantizeQ4_B64T1(DeviceTensor &B, const DeviceTensor &A);
     static bool QuantizeQ3H_B64T1(DeviceTensor &B, const DeviceTensor &A);
     static bool QuantizeQ3_B32T1(DeviceTensor &B, const DeviceTensor &A);
     static bool QuantizeQ2_B32T1(DeviceTensor &B, const DeviceTensor &A);
@@ -164,11 +167,13 @@ protected:
     static bool DequantizeQ8_B32T1(DeviceTensor &B, const DeviceTensor &A);
     static bool DequantizeQ8_B32T2(DeviceTensor &B, const DeviceTensor &A);
     static bool DequantizeQ6_B64T1(DeviceTensor &B, const DeviceTensor &A);
-    static bool DequantizeQ5(DeviceTensor &B, const DeviceTensor &A,
+    static bool DequantizeQ5_B32T1(DeviceTensor &B, const DeviceTensor &A,
         bool be_transpose = false, int alg_id = 0);
+    static bool DequantizeQ5_B64T1(DeviceTensor &B, const DeviceTensor &A);
     static bool DequantizeQ4B16(DeviceTensor &B, const DeviceTensor &A);
     static bool DequantizeQ4_B32T1(DeviceTensor &B, const DeviceTensor &A);
     static bool DequantizeQ4_B32T1_Alg1(DeviceTensor &B, const DeviceTensor &A);
+    static bool DequantizeQ4_B64T1(DeviceTensor &B, const DeviceTensor &A);
     static bool DequantizeQ3H_B64T1(DeviceTensor &B, const DeviceTensor &A);
     static bool DequantizeQ3_B32T1(DeviceTensor &B, const DeviceTensor &A);
     static bool DequantizeQ2_B32T1(DeviceTensor &B, const DeviceTensor &A);

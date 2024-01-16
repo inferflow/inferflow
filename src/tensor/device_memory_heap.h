@@ -11,8 +11,8 @@ class DeviceMemoryHeap
 {
 protected:
     void *data_ = nullptr;
-    int capacity_ = 0;
-    int allocated_size_ = 0;
+    uint64_t capacity_ = 0;
+    uint64_t allocated_size_ = 0;
 
     const static int Alignment_ = 256;
 
@@ -29,7 +29,7 @@ public:
 
     void Clear(bool free_memory = false);
 
-    bool Init(int capacity = 32 * 1000 * 1000);
+    bool Init(uint64_t capacity = 32 * 1000 * 1000);
 
     void* New(int size);
 
@@ -47,4 +47,3 @@ public:
 };
 
 INFER_FLOW_END
-

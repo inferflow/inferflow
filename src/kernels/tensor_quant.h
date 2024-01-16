@@ -117,6 +117,23 @@ __global__ void Tensor_QuantizeQ5_Kernel(const SourceType *A, uint8_t *B,
 }
 
 template <typename SourceType>
+__global__ void Tensor_QuantizeQ5_B64T1_Kernel(const SourceType *A, uint8_t *B,
+    int row_num, int col_num, int b_bytes_per_row, int blocks_per_row)
+{
+    int row = threadIdx.y + blockIdx.y * blockDim.y;
+    int block_id = threadIdx.x + blockIdx.x * blockDim.x;
+    const int block_size = sizeof(BlockQ5_B64T1);
+    const int block_capacity = Q5_B64_CAPACITY;
+
+    if (row < row_num && block_id < blocks_per_row)
+    {
+        auto *block = (BlockQ5_B64T1*)(B + row * b_bytes_per_row + block_id * block_size);
+        const SourceType *source = A + (row * blocks_per_row + block_id) * block_capacity;
+        DeviceQuantization::QuantizeRow_Q5_B64T1<SourceType>(block, 1, source, block_capacity, false);
+    }
+}
+
+template <typename SourceType>
 __global__ void Tensor_QuantizeQ4B16_Kernel(const SourceType *A, uint8_t *B,
     int row_num, int col_num, int b_bytes_per_row, int blocks_per_row)
 {
@@ -176,6 +193,23 @@ __global__ void Tensor_QuantizeQ4_B32T1B_Kernel(const SourceType *A, uint8_t *B,
 
         //printf("block base: 0x%X, scale: 0x%X, data[0-3]: 0x%X\n",
         //    block->base, block->scale, *(const uint32_t*)block->data);
+    }
+}
+
+template <typename SourceType>
+__global__ void Tensor_QuantizeQ4_B64T1_Kernel(const SourceType *A, uint8_t *B,
+    int row_num, int col_num, int b_bytes_per_row, int blocks_per_row)
+{
+    int row = threadIdx.y + blockIdx.y * blockDim.y;
+    int block_id = threadIdx.x + blockIdx.x * blockDim.x;
+    const int block_size = sizeof(BlockQ4_B64T1);
+    const int block_capacity = Q4_B64_CAPACITY;
+
+    if (row < row_num && block_id < blocks_per_row)
+    {
+        auto *block = (BlockQ4_B64T1*)(B + row * b_bytes_per_row + block_id * block_size);
+        const SourceType *source = A + (row * blocks_per_row + block_id) * block_capacity;
+        DeviceQuantization::QuantizeRow_Q4_B64T1<SourceType>(block, 1, source, block_capacity, false);
     }
 }
 
@@ -397,6 +431,28 @@ __global__ void Tensor_DequantizeQ5_Alg2_Transpose_Kernel(const uint8_t *A, Targ
     }
 }
 
+template <typename TargetType>
+__global__ void Tensor_DequantizeQ5_B64T1_Kernel(const uint8_t *A, TargetType *B,
+    int row_num, int col_num, int bytes_per_row, int blocks_per_row)
+{
+    int row = threadIdx.y + blockIdx.y * blockDim.y;
+    int block_id = blockIdx.x;
+    const int block_size = sizeof(BlockQ5_B64T1);
+    const int block_capacity = Q5_B64_CAPACITY;
+
+    int r = threadIdx.x;
+    if (row < row_num && block_id < blocks_per_row)
+    {
+        const auto *block = (const BlockQ5_B64T1*)(A + row * bytes_per_row + block_id * block_size);
+        TargetType *target = B + (row * blocks_per_row + block_id) * block_capacity;
+        TargetType &v1 = target[4 * r];
+        TargetType &v2 = target[4 * r + 1];
+        TargetType &v3 = target[4 * r + 2];
+        TargetType &v4 = target[4 * r + 3];
+        DeviceQuantization::DequantizeQ5_B64T1(v1, v2, v3, v4, block, r);
+    }
+}
+
 __global__ void Tensor_DequantizeQ4_Half_Kernel(const uint8_t *A, half *B,
     int row_num, int col_num, int bytes_per_row, int blocks_per_row)
 {
@@ -455,6 +511,28 @@ __global__ void Tensor_DequantizeQ4_B32T1_Kernel(const uint8_t *A, TargetType *B
         TargetType &v1 = target[2 * r];
         TargetType &v2 = target[2 * r + 1];
         DeviceQuantization::DequantizeQ4_B32T1(v1, v2, block, r);
+    }
+}
+
+template <typename TargetType>
+__global__ void Tensor_DequantizeQ4_B64T1_Kernel(const uint8_t *A, TargetType *B,
+    int row_num, int col_num, int bytes_per_row, int blocks_per_row)
+{
+    int row = threadIdx.y + blockIdx.y * blockDim.y;
+    int block_id = blockIdx.x;
+    const int block_size = sizeof(BlockQ4_B64T1);
+    const int block_capacity = Q4_B64_CAPACITY;
+
+    int r = threadIdx.x;
+    if (row < row_num && block_id < blocks_per_row)
+    {
+        const auto *block = (const BlockQ4_B64T1*)(A + row * bytes_per_row + block_id * block_size);
+        TargetType *target = B + (row * blocks_per_row + block_id) * block_capacity;
+        TargetType &v1 = target[4 * r];
+        TargetType &v2 = target[4 * r + 1];
+        TargetType &v3 = target[4 * r + 2];
+        TargetType &v4 = target[4 * r + 3];
+        DeviceQuantization::DequantizeQ4_B64T1(v1, v2, v3, v4, block, r);
     }
 }
 

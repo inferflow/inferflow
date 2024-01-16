@@ -110,9 +110,12 @@ bool InferenceEngine::Init(const InferenceConfig &cfg)
     }
 
     const auto &vocab = model_.vocabulary;
-    LogKeyInfo("unk\t%d\t%s", vocab.unk(), TokenIdToStr(vocab.unk()).c_str());
-    LogKeyInfo("bos\t%d\t%s", vocab.bos(), TokenIdToStr(vocab.bos()).c_str());
-    LogKeyInfo("eos\t%d\t%s", vocab.eos(), TokenIdToStr(vocab.eos()).c_str());
+    wstring token_str = StringUtil::Utf8ToWideStr(TokenIdToStr(vocab.unk()));
+    LogKeyInfo(L"unk\t%d\t%ls", vocab.unk(), token_str.c_str());
+    token_str = StringUtil::Utf8ToWideStr(TokenIdToStr(vocab.bos()));
+    LogKeyInfo(L"bos\t%d\t%ls", vocab.bos(), token_str.c_str());
+    token_str = StringUtil::Utf8ToWideStr(TokenIdToStr(vocab.eos()));
+    LogKeyInfo(L"eos\t%d\t%ls", vocab.eos(), token_str.c_str());
 
     LogKeyInfo("Initialize the tokenizer...");
     ret = tokenizer_.Init(model_.vocabulary);

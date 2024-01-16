@@ -40,6 +40,18 @@ struct BlockQ6_B64T1
     uint8_t data[Q6_B64_CAPACITY / 2]; //lower 4 bits of each value
 };
 
+// 5-bit quantization with block size 64
+// Effectively 5.5 bits per item
+// (2 + 2 + 8 + 32) * 8 / 64 = 5.5
+#define Q5_B64_CAPACITY 64
+struct BlockQ5_B64T1
+{
+    uint16_t base;  //2 bytes
+    uint16_t scale; //2 bytes
+    uint8_t data_h[Q5_B64_CAPACITY / 8]; //highest bit of each value
+    uint8_t data[Q5_B64_CAPACITY / 2]; //lower 4 bits of each value
+};
+
 #define Q5B32_CAPACITY 32
 struct BlockQ5_B32T1
 {
@@ -47,6 +59,17 @@ struct BlockQ5_B32T1
     uint8_t base[2];    //minimal value
     uint8_t h_data[Q5B32_CAPACITY / 8]; //the highest bit of each value
     uint8_t data[Q5B32_CAPACITY / 2]; //lower 4 bits of each value
+};
+
+// 4-bit quantization with block size 64
+// Effectively 4.5 bits per data item
+// (2 + 2 + 32) * 8 / 64 = 4.5
+#define Q4_B64_CAPACITY 64
+struct BlockQ4_B64T1
+{
+    uint16_t base;
+    uint16_t scale;
+    uint8_t data[Q4_B64_CAPACITY / 2];
 };
 
 // 4-bit quantization with block size 32

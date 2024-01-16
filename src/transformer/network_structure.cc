@@ -275,6 +275,10 @@ void NetworkStructure::BuildTensorNameMap_TransformerDecoder(
     tensor_map[pre + "output.weight"] = "output.weight";
     tensor_map["lm_head.weight"] = "output.weight";
     tensor_map["output.weight"] = "output.weight";
+    tensor_map[pre + "lm_head.bias"] = "output.bias";
+    tensor_map[pre + "output.bias"] = "output.bias";
+    tensor_map["lm_head.bias"] = "output.bias";
+    tensor_map["output.bias"] = "output.bias";
 
     pre = tensor_name_prefix + "decoder.layers.{i}.";
     for (int type_idx = 0; type_idx < 2; type_idx++)
@@ -307,6 +311,10 @@ void NetworkStructure::BuildTensorNameMap_TransformerDecoderOnly(
     tensor_map[pre + "output.weight"] = "output.weight";
     tensor_map["lm_head.weight"] = "output.weight";
     tensor_map["output.weight"] = "output.weight";
+    tensor_map[pre + "lm_head.bias"] = "output.bias";
+    tensor_map[pre + "output.bias"] = "output.bias";
+    tensor_map["lm_head.bias"] = "output.bais";
+    tensor_map["output.bias"] = "output.bias";
 
     pre = tensor_name_prefix + "layers.{i}.";
     for (int type_idx = 0; type_idx < 2; type_idx++)

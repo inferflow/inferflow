@@ -348,6 +348,7 @@ bool NetworkBuilder::BuildHostNetwork_Std(TransformerModel &model, const ModelSp
 
     output_tensor = model.FindHostTensor("output.weight");
     host_net.output = output_tensor;
+    host_net.output_b = model.FindHostTensor("output.bias");
 
     if (host_net.output != nullptr && spec.normalize_lm_head
         && (host_net.output->data_type == ElementType::F16
@@ -695,6 +696,12 @@ bool NetworkBuilder::BuildDeviceNetwork_DecoderOut(StdDeviceNetwork &device_net,
     {
         device_net.output = BuildDeviceTensor_ForceDequant(*host_output,
             aux_buffer, model.spec, be_trans, &aux_tensor);
+    }
+
+    if (host_net.output_b != nullptr)
+    {
+        device_net.output_b = BuildDeviceTensor_ForceDequant(
+            *host_net.output_b, aux_buffer, model.spec);
     }
 
     uint32_t decoder_layer_num = (uint32_t)host_net.decoder_layers.size();
@@ -1142,6 +1149,17 @@ bool NetworkBuilder::BuildDeviceNetwork_ByTensor(
             //    device_sub_nets[idx]->output = tensor_list[idx]->tensor;
             //}
         }
+
+        if (ret && host_net.output_b != nullptr)
+        {
+            CudaUtil::SetDevice(*la.devices->rbegin());
+            DeviceTensor *output = BuildDeviceTensor_ForceDequant(*host_net.output_b,
+                aux_buffer, model.spec);
+            for (int idx = 0; idx < device_num; idx++)
+            {
+                device_sub_nets[idx]->output_b = idx + 1 == device_num ? output : nullptr;
+            }
+        }
     }
 
     if (la.start_layer == 0)
@@ -1399,7 +1417,7 @@ void NetworkBuilder::BuildTask_Std(DeviceTensorBuilder::Task &task,
     case 5:
         //task.Set(nullptr, nullptr, tensor_data_type, true, be_trans);
         if (tensor_data_type == ElementType::Q8_GL) {
-            tensor_data_type = ElementType::Q5;
+            tensor_data_type = ElementType::Q8_B32T2;
         }
         //if (tensor_data_type >= ElementType::Q3_B32T1A) {
         //    tensor_data_type = ElementType::Q4_B32T1A;

@@ -56,4 +56,4 @@ set_property(TARGET inferflow PROPERTY CUDA_ARCHITECTURES ${INFER_FLOW_NVCC_ARCH
 add_subdirectory(service)
 add_subdirectory(tools)
 #add_subdirectory(examples)
-#add_subdirectory(unittest)
+add_subdirectory(unittest)

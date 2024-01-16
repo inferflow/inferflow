@@ -32,8 +32,10 @@ public:
     static bool DequantizeRow_Q8_B32T2(float *target, const BlockQ8_B32T2 *blocks, uint64_t block_count);
     static bool DequantizeRow_Q6_B64T1(float *target, const BlockQ6_B64T1 *blocks, uint64_t block_count);
     static bool DequantizeRow_Q5(float *target, const BlockQ5_B32T1 *blocks, uint64_t block_count);
+    static bool DequantizeRow_Q5_B64T1(float *target, const BlockQ5_B64T1 *blocks, uint64_t block_count);
     static bool DequantizeRow_Q4_B16(float *target, const BlockQ4_B16 *blocks, uint64_t block_count);
     static bool DequantizeRow_Q4_B32T1(float *target, const BlockQ4_B32T1 *blocks, uint64_t block_count);
+    static bool DequantizeRow_Q4_B64T1(float *target, const BlockQ4_B64T1 *blocks, uint64_t block_count);
     static bool DequantizeRow_Q3H_B64T1(float *target, const BlockQ3H_B64T1 *blocks, uint64_t block_count);
     static bool DequantizeRow_Q3_B32T1(float *target, const BlockQ3_B32T1 *blocks, uint64_t block_count);
     static bool DequantizeRow_Q2_B32T1(float *target, const BlockQ2_B32T1 *blocks, uint64_t block_count);
@@ -380,6 +382,99 @@ public:
     }
 
     ////////////////////////////////////////////////////////////////////////////
+    // Q5_B64T1 (5-bit quantization with block size 64)
+    ////////////////////////////////////////////////////////////////////////////
+
+    template <typename TargetType>
+    static HOST_AND_DEVICE void DequantizeQ5_B64T1(TargetType *target,
+        const BlockQ5_B64T1 *block)
+    {
+        const float scale = (float)*(const inferflow_fp16*)&block->scale;
+        const float base = (float)*(const inferflow_fp16*)&block->base;
+
+        // 16 parts, 4 values per part
+        for (int idx = 0; idx < Q5_B64_CAPACITY / 4; idx++)
+        {
+            uint8_t qh = block->data_h[idx / 2];
+            if (idx % 2 != 0) {
+                qh = (qh >> 4);
+            }
+
+            const uint8_t qh0 = qh & 0x01;
+            const uint8_t qh1 = (qh >> 1) & 0x01;
+            const uint8_t qh2 = (qh >> 2) & 0x01;
+            const uint8_t qh3 = (qh >> 3) & 0x01;
+
+            const uint16_t qd = *(const uint16_t*)(block->data + 2 * idx);
+            const int q0 = ((qd) & 0x0F) | (qh0 << 4);
+            const int q1 = ((qd >> 4) & 0x0F) | (qh1 << 4);
+            const int q2 = ((qd >> 8) & 0x0F) | (qh2 << 4);
+            const int q3 = ((qd >> 12) & 0x0F) | (qh3 << 4);
+
+            target[4 * idx] = (TargetType)(q0 * scale + base);
+            target[4 * idx + 1] = (TargetType)(q1 * scale + base);
+            target[4 * idx + 2] = (TargetType)(q2 * scale + base);
+            target[4 * idx + 3] = (TargetType)(q3 * scale + base);
+        }
+    }
+
+    template <typename SourceType>
+    static HOST_AND_DEVICE bool QuantizeRow_Q5_B64T1(BlockQ5_B64T1 *blocks, int max_block_num,
+        const SourceType *source, int source_len, bool is_debug_mode = false)
+    {
+        (void)is_debug_mode;
+        const int block_capacity = Q5_B64_CAPACITY;
+        int block_num = source_len / block_capacity;
+        if (block_num > max_block_num) {
+            return false;
+        }
+
+        const int quant_num = (1 << 5) - 1; //31
+        const uint32_t max_q = (1 << 5) - 1;
+        float v_arr[8];
+        uint32_t q_arr[8];
+        for (int block_idx = 0; block_idx < block_num; block_idx++)
+        {
+            int start_offset = block_idx * block_capacity;
+            float min_value = 0, max_value = 0;
+            GetValueRange(&min_value, &max_value, source + start_offset, block_capacity);
+
+            float scale = (max_value - min_value) / (quant_num - 1);
+            float inv_scale = scale >= 0.00001f ? (1.0f / scale) : 0.0f;
+            BlockQ5_B64T1 &target_block = blocks[block_idx];
+            inferflow_fp16 min_value_f16 = (inferflow_fp16)min_value;
+            inferflow_fp16 scale_f16 = (inferflow_fp16)scale;
+
+            //do NOT use memcpy here (using memcpy inside a CUDA kernel can cause unexpected behavior)
+            target_block.base = *(const uint16_t*)&min_value_f16;
+            target_block.scale = *(const uint16_t*)&scale_f16;
+
+            for (int r = 0; r < block_capacity / 8; ++r)
+            {
+                //li: local_idx
+                for (int li = 0; li < 8; li++)
+                {
+                    v_arr[li] = ((float)source[start_offset + 8 * r + li] - min_value) * inv_scale;
+                    q_arr[li] = QUANT_MIN((uint32_t)(v_arr[li] + 0.5f), max_q);
+                }
+
+                const uint32_t qh = ((q_arr[0] & 0x10) >> 4) | ((q_arr[1] & 0x10) >> 3)
+                    | ((q_arr[2] & 0x10) >> 2) | ((q_arr[3] & 0x10) >> 1)
+                    | ((q_arr[4] & 0x10)     ) | ((q_arr[5] & 0x10) << 1)
+                    | ((q_arr[6] & 0x10) << 2) | ((q_arr[7] & 0x10) << 3);
+                target_block.data_h[r] = (uint8_t)qh;
+
+                target_block.data[4 * r] = (q_arr[0] & 0x0F) | ((q_arr[1] & 0x0F) << 4);
+                target_block.data[4 * r + 1] = (q_arr[2] & 0x0F) | ((q_arr[3] & 0x0F) << 4);
+                target_block.data[4 * r + 2] = (q_arr[4] & 0x0F) | ((q_arr[5] & 0x0F) << 4);
+                target_block.data[4 * r + 3] = (q_arr[6] & 0x0F) | ((q_arr[7] & 0x0F) << 4);
+            }
+        }
+
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
     // Q4_B32T1
     ////////////////////////////////////////////////////////////////////////////
 
@@ -572,6 +667,81 @@ public:
                 q1 = q1 > 15 ? 15 : q1;
                 q2 = q2 > 15 ? 15 : q2;
                 target_block.data[r] = (q1 & 0x0F) | ((q2 & 0x0F) << 4);
+            }
+        }
+
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Q4_B64T1 (4-bit quantization with block size 64)
+    ////////////////////////////////////////////////////////////////////////////
+
+    template <typename TargetType>
+    static HOST_AND_DEVICE void DequantizeQ4_B64T1(TargetType *target,
+        const BlockQ4_B64T1 *block)
+    {
+        const float scale = (float)*(const inferflow_fp16*)&block->scale;
+        const float base = (float)*(const inferflow_fp16*)&block->base;
+
+        // 16 parts, 4 values per part
+        for (int idx = 0; idx < Q4_B64_CAPACITY / 4; idx++)
+        {
+            const uint16_t qd = *(const uint16_t*)(block->data + 2 * idx);
+            const int q0 = (qd) & 0x0F;
+            const int q1 = (qd >> 4) & 0x0F;
+            const int q2 = (qd >> 8) & 0x0F;
+            const int q3 = (qd >> 12) & 0x0F;
+
+            target[4 * idx] = (TargetType)(q0 * scale + base);
+            target[4 * idx + 1] = (TargetType)(q1 * scale + base);
+            target[4 * idx + 2] = (TargetType)(q2 * scale + base);
+            target[4 * idx + 3] = (TargetType)(q3 * scale + base);
+        }
+    }
+
+    template <typename SourceType>
+    static HOST_AND_DEVICE bool QuantizeRow_Q4_B64T1(BlockQ4_B64T1 *blocks, int max_block_num,
+        const SourceType *source, int source_len, bool is_debug_mode = false)
+    {
+        (void)is_debug_mode;
+        const int block_capacity = Q4_B64_CAPACITY;
+        int block_num = source_len / block_capacity;
+        if (block_num > max_block_num) {
+            return false;
+        }
+
+        const int quant_num = (1 << 4) - 1; //15
+        const uint32_t max_q = (1 << 4) - 1;
+        for (int block_idx = 0; block_idx < block_num; block_idx++)
+        {
+            int start_offset = block_idx * block_capacity;
+            float min_value = 0, max_value = 0;
+            GetValueRange(&min_value, &max_value, source + start_offset, block_capacity);
+
+            float scale = (max_value - min_value) / (quant_num - 1);
+            float inv_scale = scale >= 0.00001f ? (1.0f / scale) : 0.0f;
+            BlockQ4_B64T1 &target_block = blocks[block_idx];
+            inferflow_fp16 min_value_f16 = (inferflow_fp16)min_value;
+            inferflow_fp16 scale_f16 = (inferflow_fp16)scale;
+
+            //do NOT use memcpy here (using memcpy inside a CUDA kernel can cause unexpected behavior)
+            target_block.base = *(const uint16_t*)&min_value_f16;
+            target_block.scale = *(const uint16_t*)&scale_f16;
+
+            for (int r = 0; r < block_capacity / 4; ++r)
+            {
+                const float v0 = ((float)source[start_offset + 4 * r] - min_value) * inv_scale;
+                const float v1 = ((float)source[start_offset + 4 * r + 1] - min_value) * inv_scale;
+                const float v2 = ((float)source[start_offset + 4 * r + 2] - min_value) * inv_scale;
+                const float v3 = ((float)source[start_offset + 4 * r + 3] - min_value) * inv_scale;
+                const uint32_t q0 = QUANT_MIN((uint32_t)(v0 + 0.5f), max_q);
+                const uint32_t q1 = QUANT_MIN((uint32_t)(v1 + 0.5f), max_q);
+                const uint32_t q2 = QUANT_MIN((uint32_t)(v2 + 0.5f), max_q);
+                const uint32_t q3 = QUANT_MIN((uint32_t)(v3 + 0.5f), max_q);
+
+                target_block.data[2 * r] = (uint8_t)(q0 | (q1 << 4));
+                target_block.data[2 * r + 1] = (uint8_t)(q2 | (q3 << 4));
             }
         }
 

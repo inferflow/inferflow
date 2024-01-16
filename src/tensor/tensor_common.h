@@ -22,12 +22,14 @@ enum class ElementType
     Q8_B32T1,   //8-bit quantization: block linear (block capacity 32, type-1)
     Q8_B32T2,   //8-bit quantization: block linear (block capacity 32, type-2)
     Q6_B64T1,   //6-bit quantization: block linear (block capaticy 64, type-1)
-    Q5,
+    Q5_B64T1,
+    Q5_B32T1,
     Q4_B16,
     Q4_B32T1A,
     Q4_B32T1B,
     Q4_B32T2,
     Q4_B32P8,
+    Q4_B64T1,
     Q3H_B64T1,
     Q3_B32T1A,
     Q3_B32T1B,

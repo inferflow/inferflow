@@ -16,7 +16,7 @@ void DeviceMemoryHeap::Clear(bool free_memory)
     }
 }
 
-bool DeviceMemoryHeap::Init(int capacity)
+bool DeviceMemoryHeap::Init(uint64_t capacity)
 {
     Clear(true);
 
@@ -59,4 +59,3 @@ void* DeviceMemoryHeap::New(int size)
 }
 
 INFER_FLOW_END
-

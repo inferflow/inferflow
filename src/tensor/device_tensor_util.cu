@@ -493,7 +493,7 @@ bool DeviceTensorUtil::BuildTensor_Q6_B64T1(DeviceTensor &tensor,
     return ret;
 }
 
-bool DeviceTensorUtil::BuildQ5Tensor(DeviceTensor &tensor,
+bool DeviceTensorUtil::BuildTensor_Q5_B32T1(DeviceTensor &tensor,
     const vector<inferflow_fp16> &host_array, int cx, int cy, int cz)
 {
     int blocks_per_row = cx / Q5B32_CAPACITY;
@@ -516,8 +516,27 @@ bool DeviceTensorUtil::BuildQ5Tensor(DeviceTensor &tensor,
     //Quantization::DequantizeQ5Block(temp, &first_block);
     //LogKeyInfo("e0: %f, base: %f, delta: %f", (float)temp[0], (float)first_block.base, (float)first_block.delta);
 
-    tensor.New(ElementType::Q5, cx, cy, cz);
+    tensor.New(ElementType::Q5_B32T1, cx, cy, cz);
     int bytes = (int)(block_array.size() * sizeof(BlockQ5_B32T1));
+    bool ret = tensor.CopyFromHost(block_array.data(), bytes);
+    return ret;
+}
+
+bool DeviceTensorUtil::BuildTensor_Q5_B64T1(DeviceTensor &tensor,
+    const vector<inferflow_fp16> &host_array, int cx, int cy, int cz)
+{
+    int blocks_per_row = cx / Q5_B64_CAPACITY;
+    vector<BlockQ5_B64T1> block_array(blocks_per_row * cy);
+    for (int row_id = 0; row_id < cy; row_id++)
+    {
+        const inferflow_fp16 *source_row = host_array.data() + row_id * cx;
+        BlockQ5_B64T1 *target_blocks = block_array.data() + row_id * blocks_per_row;
+        Quantization::QuantizeRow_Q5_B64T1<inferflow_fp16>(target_blocks,
+            blocks_per_row, source_row, cx);
+    }
+
+    tensor.New(ElementType::Q5_B64T1, cx, cy, cz);
+    int bytes = (int)(block_array.size() * sizeof(BlockQ5_B64T1));
     bool ret = tensor.CopyFromHost(block_array.data(), bytes);
     return ret;
 }
@@ -575,6 +594,25 @@ bool DeviceTensorUtil::BuildTensor_Q4_B32T1B(DeviceTensor &tensor,
 
     tensor.New(ElementType::Q4_B32T1B, cx, cy, cz);
     int bytes = (int)(block_array.size() * sizeof(BlockQ4_B32T1));
+    bool ret = tensor.CopyFromHost(block_array.data(), bytes);
+    return ret;
+}
+
+bool DeviceTensorUtil::BuildTensor_Q4_B64T1(DeviceTensor &tensor,
+    const vector<inferflow_fp16> &host_array, int cx, int cy, int cz)
+{
+    int blocks_per_row = cx / Q4_B64_CAPACITY;
+    vector<BlockQ4_B64T1> block_array(blocks_per_row * cy);
+    for (int row_id = 0; row_id < cy; row_id++)
+    {
+        const inferflow_fp16 *source_row = host_array.data() + row_id * cx;
+        BlockQ4_B64T1 *target_blocks = block_array.data() + row_id * blocks_per_row;
+        Quantization::QuantizeRow_Q4_B64T1<inferflow_fp16>(target_blocks,
+            blocks_per_row, source_row, cx);
+    }
+
+    tensor.New(ElementType::Q4_B64T1, cx, cy, cz);
+    int bytes = (int)(block_array.size() * sizeof(BlockQ4_B64T1));
     bool ret = tensor.CopyFromHost(block_array.data(), bytes);
     return ret;
 }
