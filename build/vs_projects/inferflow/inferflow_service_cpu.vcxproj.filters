@@ -7,8 +7,16 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\src\tools\llm_inference.cc">
+    <ClCompile Include="..\..\..\src\service\inferflow_service.cc">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\service\inferflow_service_main.cc">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\src\service\inferflow_service.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
