@@ -6,7 +6,7 @@ SRC_DIR=https://huggingface.co/karpathy/tinyllamas/resolve/main
 
 FILE[0]=README.md
 FILE[1]=stories15M.bin
-FILE[2]=stories15M.bin
+FILE[2]=stories110M.bin
 
 for i in {0..2}
 do
