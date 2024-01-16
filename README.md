@@ -83,6 +83,7 @@ Users can serve a model with Inferflow by editing a model specification file. We
 - [X] LLAMA2 (llama2_7b, llama2_7b_chat, llama2_13b_chat)
 - [X] Mistral (mistral_7b_instruct)
 - [X] Open LLAMA (open_llama_3b)
+- [X] Phi-2 (phi_2)
 - [X] YI (yi_6b, yi_34b_chat)
 
 
@@ -127,6 +128,40 @@ cd inferflow
   For the Debug configuration, executables are generated to ```bin/x64_Debug/```; while the output directory for the Release configuration is ```bin/x64_Release/```.
   
 ### Run the Service and Tools
+
+* Example-1: Load a tiny model and perform inference
+
+  Step-1: Download the model
+
+  ```
+  cd {inferflow-root-dir}/data/models/llama2.c/
+  bash download.sh
+  ```
+
+  Step-2: Run the **llm_inference** tool:
+
+  ```
+  cd {inferflow-root-dir}/bin/
+  release/llm_inference llm_inference.tiny.ini
+  ```
+
+* Example-2: Run the **llm_inference** tool to load a larger model for inference
+
+  Step-1: Edit configuration file **bin/llm_inference.ini** to choose a model
+
+  Step-2: Download the selected model
+  ```
+  cd {inferflow-root-dir}/data/models/{model-name}/
+  bash download.sh
+  ```
+
+  Step-3: Run the tool:
+
+  ```
+  cd {inferflow-root-dir}/bin/
+  release/llm_inference
+  ```
+
 * Start the Inferflow service:
 
   Step-1: Edit the service configuration file (bin/inferflow_service.ini)
@@ -145,17 +180,6 @@ cd inferflow
   ```
   cd bin/release (on Windows: cd bin/x64_Release)
   ./inferflow_client
-  ```
-
-* Run the llm_inference tool (for testing the inference engine):
-
-  Step-1: Edit the configuration file (bin/llm_inference.ini)
-
-  Step-2: Run the tool:
-
-  ```
-  cd bin/release (on Windows: cd bin/x64_Release)
-  ./llm_inference
   ```
 
 ### Acknowledgements
