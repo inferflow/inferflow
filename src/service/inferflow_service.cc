@@ -123,7 +123,7 @@ bool InferFlowServiceCore::Infer(int max_output_len)
             iter_find->second.text += token_str;
             iter_find->second.is_end = next_token.is_end;
         }
-	result_lock_.unlock(); //unlock
+        result_lock_.unlock(); //unlock
     }
 
     engine_.CommitInferenceResult(query_map);
@@ -263,6 +263,12 @@ Socket::RetCode InferFlowServiceCore::HandleRequest_Inner(
                 }
             }
         }
+    }
+
+    if (is_streaming)
+    {
+        string empty_str;
+        ret_code = writer->WriteChunk(empty_str);
     }
 
     return ret_code;
@@ -425,7 +431,7 @@ bool InferFlowService::Start()
         //start a thread
         core_.Create();
 
-	//start the HTTP server
+        //start the HTTP server
         return BaseHttpServer::Start();
     }
 

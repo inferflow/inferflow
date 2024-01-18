@@ -419,7 +419,7 @@ void AppEnv::LogProcessMemoryUsage(InformationUnit unit)
     {
     case InformationUnit::Byte:
         unit_name = "bytes";
-        ratio = 1 / pow(1024.0f, 2);
+        ratio = 1 / (float)pow(1024.0f, 2);
         break;
     case InformationUnit::KB:
         unit_name = "KB";
@@ -435,7 +435,7 @@ void AppEnv::LogProcessMemoryUsage(InformationUnit unit)
         break;
     case InformationUnit::TB:
         unit_name = "TB";
-        ratio = pow(1024.0f, 2);
+        ratio = (float)pow(1024.0f, 2);
         break;
     default:
         break;
