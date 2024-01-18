@@ -8,14 +8,12 @@
 <img src="https://img.shields.io/github/issues/inferflow/inferflow?color=red" alt="Issues">
 
 </h4>
-</div>
-
-</div>
 
 
-__Inferflow__ is an efficient and highly configurable inference engine and service for large language models (LLMs).
+
+[__Inferflow__](https://inferflow.github.io/) is an efficient and highly configurable inference engine for large language models (LLMs).
 With Inferflow, users can serve most of the common transformer models by simply modifying some lines in corresponding configuration files,
-without writing a single line of source code.
+without writing a single line of source code. Further details can be found in our [technical report](https://arxiv.org/abs/2401.08294).
 
 ## Main Features
 1. **Extensible and highly configurable**: A typical way of using Inferflow to serve a new model is editing a model specification file, but not adding/editing source codes. We implement in Inferflow a modular framework of atomic building-blocks and technologies, making it compositionally generalizable to new models. A new model can be served by Inferflow if the atomic building-blocks and technologies in this model have been "known" (to Inferflow).
