@@ -180,5 +180,18 @@ cd inferflow
   ./inferflow_client
   ```
 
+### Reference
+If you are interested in our work, please kindly cite our paper:
+```bib
+@misc{shi2024inferflow,
+    title={Inferflow: an Efficient and Highly Configurable Inference Engine for Large Language Models},
+    author={Shuming Shi and Enbo Zhao and Deng Cai and Leyang Cui and Xinting Huang and Huayang Li},
+    year={2024},
+    eprint={2401.08294},
+    archivePrefix={arXiv},
+    primaryClass={cs.CL}
+}
+```
+
 ### Acknowledgements
 Inferflow is inspired by the awesome projects of [llama.cpp](https://github.com/ggerganov/llama.cpp) and [llama2.c](https://github.com/karpathy/llama2.c). The CPU inference part of Inferflow is based on the [ggml](https://github.com/ggerganov/ggml) library. The FP16 data type in the CPU-only version of Inferflow is from the [Half-precision floating-point library](https://half.sourceforge.net/). We express our sincere gratitude to the maintainers and implementers of these source codes and tools.
