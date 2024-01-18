@@ -181,7 +181,7 @@ cd inferflow
   ```
 
 ### Reference
-If you are interested in our work, please kindly cite our paper:
+If you are interested in our work, please kindly cite:
 ```bib
 @misc{shi2024inferflow,
     title={Inferflow: an Efficient and Highly Configurable Inference Engine for Large Language Models},
