@@ -82,6 +82,7 @@ Users can serve a model with Inferflow by editing a model specification file. We
 - [X] Mistral (mistral_7b_instruct)
 - [X] Open LLAMA (open_llama_3b)
 - [X] Phi-2 (phi_2)
+- [X] XVERSE (xverse_13b_chat)
 - [X] YI (yi_6b, yi_34b_chat)
 
 
@@ -180,6 +181,11 @@ cd inferflow
   ./inferflow_client
   ```
 
+  You can also use the CURL command to send a HTTP POST request to the Inferflow service and get inference results. Below is an example:
+  ```
+  curl -X POST -d '{"text": "Write an article about the weather of Seattle.", "res_prefix": "", "decoding_alg": "sample.top_p", "random_seed": 1, "temperature": 0.7, "is_streaming_mode": false}' localhost:8080
+  ```
+
 ### Reference
 If you are interested in our work, please kindly cite:
 ```bib
@@ -192,11 +198,6 @@ If you are interested in our work, please kindly cite:
     primaryClass={cs.CL}
 }
 ```
-=======
-  You can also use the CURL command to send a HTTP POST request to the Inferflow service and get inference results. Below is an example:
-  ```
-  curl -X POST -d '{"text": "Write an article about the weather of Seattle.", "res_prefix": "", "decoding_alg": "sample.top_p", "random_seed": 1, "temperature": 0.7, "is_streaming_mode": false}' localhost:8080
-  ```
 
 ### Acknowledgements
 Inferflow is inspired by the awesome projects of [llama.cpp](https://github.com/ggerganov/llama.cpp) and [llama2.c](https://github.com/karpathy/llama2.c). The CPU inference part of Inferflow is based on the [ggml](https://github.com/ggerganov/ggml) library. The FP16 data type in the CPU-only version of Inferflow is from the [Half-precision floating-point library](https://half.sourceforge.net/). We express our sincere gratitude to the maintainers and implementers of these source codes and tools.
