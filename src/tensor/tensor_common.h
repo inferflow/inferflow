@@ -52,10 +52,15 @@ enum class TensorNormAlg
 enum class ActivationFn
 {
     SIGMOID,
-    ELU,      //Exponential Linear Unit
-    RELU,     //Rectified linear unit
-    GELU,     //Gaussian error linear unit
-    SILU      //Sigmoid Linear Units (another name: SwiGLU)
+    ELU,            //Exponential Linear Unit
+    RELU,           //Rectified linear unit
+    GELU,           //Gaussian error linear unit
+    SILU,           //Sigmoid Linear Units (another name: SwiGLU)
+    GLU_SIGMOID,    //GLU (Gated Linear Units) with SIGMOID as the sigma function
+    GLU_ELU,        //GLU with ELU as the sigma function
+    GLU_RELU,       //GLU with RELU as the sigma function
+    GLU_GELU,       //GLU with GELU as the sigma function
+    GLU_SILU        //GLU with SILU as the sigma function
 };
 
 enum class PositionEmbeddingAlg

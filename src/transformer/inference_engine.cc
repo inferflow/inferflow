@@ -549,7 +549,12 @@ void InferenceEngine::BuildEncoderInput(EncoderInput &obj, const LlmQuery &query
             continue;
         }
 
-        if (token_id < 0 || token_id >= vocab.Size())
+        int max_token_id = vocab.Size() - 1;
+        if (model.encoder_embeddings != nullptr) {
+            max_token_id = max(model.encoder_embeddings->ne[1] - 1, max_token_id);
+        }
+
+        if (token_id < 0 || token_id > max_token_id)
         {
             LogWarning("Invalid token: %s", key.c_str());
             continue;
@@ -669,7 +674,12 @@ void InferenceEngine::BuildDecoderInput(DecoderPrefix &obj, const LlmQuery &quer
                 section_text.clear();
             }
 
-            if (token_id < 0 || token_id >= vocab.Size())
+            int max_token_id = vocab.Size() - 1;
+            if (model.decoder_embeddings != nullptr) {
+                max_token_id = max(model.decoder_embeddings->ne[1] - 1, max_token_id);
+            }
+
+            if (token_id < 0 || token_id > max_token_id)
             {
                 LogWarning("Invalid token: %s", key.c_str());
                 continue;

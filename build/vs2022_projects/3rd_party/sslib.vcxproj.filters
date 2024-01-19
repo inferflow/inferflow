@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="dict_matrix_graph">
+      <UniqueIdentifier>{f72c7aa0-f31b-49a2-8b46-515c84cc4a5f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="math">
+      <UniqueIdentifier>{c70494e7-34ed-4110-8cfa-04b80e4a5995}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="basic_data_structures">
+      <UniqueIdentifier>{ff7d5c0a-32bb-4c01-bb46-5361a6dd4b34}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="headers">
+      <UniqueIdentifier>{4d8c2d7b-c4e5-4e4a-aec9-c8020ff94bfb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="utils">
+      <UniqueIdentifier>{10d35c84-7864-4e92-969b-426c14146600}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="allocator">
+      <UniqueIdentifier>{385d9745-9a7d-4399-8883-35ede8e179f1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="misc">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd;cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="io">
+      <UniqueIdentifier>{7565a9a8-e0d1-4454-98cb-5425428633a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="net">
+      <UniqueIdentifier>{224ff8c6-7bab-4202-977f-6b99987884f3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="time">
+      <UniqueIdentifier>{b5cde22e-3cbd-453e-ae37-f4cb7c53385d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="web">
+      <UniqueIdentifier>{e286d2c9-ae3b-4bbb-b460-7644996c6c87}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="app_env">
+      <UniqueIdentifier>{9e6c3564-d45e-48bc-8887-df531a286477}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\3rd_party\sslib\math_decimal.cc">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\math_fraction.cc">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\math_utils.cc">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\std_static_graph.cc">
+      <Filter>dict_matrix_graph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\std_static_matrix.cc">
+      <Filter>dict_matrix_graph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\naive_matrix.cc">
+      <Filter>dict_matrix_graph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\json.cc">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\graph_helper.cc">
+      <Filter>dict_matrix_graph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\string_dict.cc">
+      <Filter>dict_matrix_graph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\dict_helper.cc">
+      <Filter>dict_matrix_graph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\error_info.cc">
+      <Filter>misc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\string_util.cc">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\log.cc">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\time_span.cc">
+      <Filter>time</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\date_time.cc">
+      <Filter>time</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\cache.cc">
+      <Filter>basic_data_structures</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\sparse_vector.cc">
+      <Filter>basic_data_structures</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\string.cc">
+      <Filter>basic_data_structures</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\sub_str_lookup_tree.cc">
+      <Filter>basic_data_structures</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\string_vector.cc">
+      <Filter>basic_data_structures</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\top_k_queue.cc">
+      <Filter>basic_data_structures</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\blocked_allocator.cc">
+      <Filter>allocator</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\string_blocked_heap.cc">
+      <Filter>allocator</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\app_environment.cc">
+      <Filter>app_env</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\computer_process.cc">
+      <Filter>app_env</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\int_dict.cc">
+      <Filter>dict_matrix_graph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\item_dict.cc">
+      <Filter>dict_matrix_graph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\binary_file_stream.cc">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\chained_str_stream.cc">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\path.cc">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\row_reader.cc">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\stream_helper.cc">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\number.cc">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\numerical_util.cc">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\config_data.cc">
+      <Filter>misc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\thread.cc">
+      <Filter>misc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\unicode_table.cc">
+      <Filter>misc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\http_client.cc">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\http_common.cc">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\http_server.cc">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\net_msg.cc">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\service_data_types.cc">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\socket.cc">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\socket_group.cc">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\edit_distance.cc">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\random.cc">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\task_monitor.cc">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\vector_util.cc">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\html_utility.cc">
+      <Filter>web</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\http_utility.cc">
+      <Filter>web</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\test_manager.cc">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\hash.cc">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\rpc_server.cc">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\base_tcp_server.cc">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\worker_pool.cc">
+      <Filter>basic_data_structures</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\rpc_client.cc">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\naive_trie.cc">
+      <Filter>basic_data_structures</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\task_queue.cc">
+      <Filter>basic_data_structures</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\3rd_party\sslib\thread_group.cc">
+      <Filter>misc</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\3rd_party\sslib\math_decimal.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\math_fraction.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\math_utils.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\std_static_graph.h">
+      <Filter>dict_matrix_graph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\std_static_matrix.h">
+      <Filter>dict_matrix_graph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\naive_matrix.h">
+      <Filter>dict_matrix_graph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\json.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\graph_helper.h">
+      <Filter>dict_matrix_graph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\test_manager.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\string_vector.h">
+      <Filter>basic_data_structures</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\prime_types.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\basic_headers.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\string_dict.h">
+      <Filter>dict_matrix_graph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\dict_helper.h">
+      <Filter>dict_matrix_graph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\error_info.h">
+      <Filter>misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\string_util.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\log.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\macro.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\time_span.h">
+      <Filter>time</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\date_time.h">
+      <Filter>time</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\blocked_array.h">
+      <Filter>basic_data_structures</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\cache.h">
+      <Filter>basic_data_structures</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\hashtable.h">
+      <Filter>basic_data_structures</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\int_range.h">
+      <Filter>basic_data_structures</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\map.h">
+      <Filter>basic_data_structures</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\raw_array.h">
+      <Filter>basic_data_structures</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\sparse_vector.h">
+      <Filter>basic_data_structures</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\string.h">
+      <Filter>basic_data_structures</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\sub_str_lookup_tree.h">
+      <Filter>basic_data_structures</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\top_k_queue.h">
+      <Filter>basic_data_structures</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\vector_ex.h">
+      <Filter>basic_data_structures</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\blocked_allocator.h">
+      <Filter>allocator</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\string_blocked_heap.h">
+      <Filter>allocator</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\app_environment.h">
+      <Filter>app_env</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\computer_process.h">
+      <Filter>app_env</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\int_dict.h">
+      <Filter>dict_matrix_graph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\item_dict.h">
+      <Filter>dict_matrix_graph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\binary_file_stream.h">
+      <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\chained_str_stream.h">
+      <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\binary_stream.h">
+      <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\path.h">
+      <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\row_reader.h">
+      <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\stream_helper.h">
+      <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\number.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\numerical_util.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\config_data.h">
+      <Filter>misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\measurement_unit.h">
+      <Filter>misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\memory_check.h">
+      <Filter>misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\thread.h">
+      <Filter>misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\unicode_table.h">
+      <Filter>misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\http_client.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\http_common.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\net_msg.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\service_data_types.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\socket.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\socket_group.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\edit_distance.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\random.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\task_monitor.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\vector_util.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\html_utility.h">
+      <Filter>web</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\http_utility.h">
+      <Filter>web</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\serializable.h">
+      <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\http_server.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\socket_serializable.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\hash.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\rpc_server.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\base_tcp_server.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\worker_pool.h">
+      <Filter>basic_data_structures</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\rpc_client.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\naive_trie.h">
+      <Filter>basic_data_structures</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\task_queue.h">
+      <Filter>basic_data_structures</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\3rd_party\sslib\thread_group.h">
+      <Filter>misc</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

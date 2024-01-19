@@ -27,7 +27,7 @@ bool DecodingStrategies::Init()
 
     auto *std_strategy = new StdSamplingStrategy();
     StdSamplingStrategy::Config std_config;
-    std_config.eos_bypassing_max = 3;
+    std_config.eos_bypassing_max = 0;
     std_strategy->Init(std_config);
 
     SamplingStrategy *strategy = std_strategy;

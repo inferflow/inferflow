@@ -697,6 +697,7 @@ bool TensorOpr::PositionEmbedding(DeviceTensor &B, const DeviceTensor &A,
 
     int rope_cols = (int)(A.ne[0] * params.partial_rotary_factor + 0.5f);
     int rope_dims = (int)(params.dims * params.partial_rotary_factor + 0.5f);
+    //LogKeyInfo("params.dims: %d, rope dims: %d", params.dims, rope_dims);
 
     int y_num = A.ne[1];
     if (z_num < 0) {
@@ -933,7 +934,10 @@ bool TensorOpr::Activation(DeviceTensor &B, const DeviceTensor &A, ActivationFn 
         ret = GeluActivation(B, A);
         break;
     case ActivationFn::SILU:
-        ret = SiluActivation(B, A);
+        ret = SiluActivation(B, A, false);
+        break;
+    case ActivationFn::GLU_SILU:
+        ret = SiluActivation(B, A, true);
         break;
     default:
         LogError("Activation function %d is not implemented yet.", (int)fn);
@@ -986,14 +990,16 @@ bool TensorOpr::ReluActivation(DeviceTensor &B, const DeviceTensor &A)
 }
 
 //static
-bool TensorOpr::SiluActivation(DeviceTensor &B, const DeviceTensor &A)
+bool TensorOpr::SiluActivation(DeviceTensor &B, const DeviceTensor &A, bool is_glu)
 {
-    bool ret = IsCompatible_AB(A, B);
-    if (!ret) {
+    int r = is_glu ? 2 : 1;
+    bool is_compatible = A.ne[0] == r * B.ne[0] && A.ne[1] == B.ne[1]
+            && A.ne[2] == B.ne[2];
+    if (!is_compatible) {
         return false;
     }
 
-    int M = A.Rows(), N = A.Columns();
+    int M = A.Rows(), N = A.Columns() / r;
     int block_size = 8;
     dim3 block(block_size, block_size);
     dim3 grid((N + block.x - 1) / block.x, (M + block.y - 1) / block.y);
@@ -1005,13 +1011,13 @@ bool TensorOpr::SiluActivation(DeviceTensor &B, const DeviceTensor &A)
 	{
             half *b_data = B.data_f16();
             SiluActivation_Kernel<half, half><<<grid, block>>>(
-                M, N, a_data, b_data);
+                M, N, a_data, b_data, is_glu);
         }
         else
         {
             float *b_data = B.data_f32();
             SiluActivation_Kernel<half, float><<<grid, block>>>(
-                M, N, a_data, b_data);
+                M, N, a_data, b_data, is_glu);
         }
     }
     else
@@ -1020,10 +1026,10 @@ bool TensorOpr::SiluActivation(DeviceTensor &B, const DeviceTensor &A)
         float *b_data = B.data_f32();
 
         SiluActivation_Kernel<float, float><<<grid, block>>>(
-            M, N, a_data, b_data);
+            M, N, a_data, b_data, is_glu);
     }
 
-    ret = CudaUtil::DeviceSynchronize("SiluActivation");
+    bool ret = CudaUtil::DeviceSynchronize("SiluActivation");
     return ret;
 }
 

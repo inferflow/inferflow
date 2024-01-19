@@ -291,9 +291,10 @@ bool NetworkBuilder::BuildDeviceTensor(StdDeviceNetwork &device_net,
     if (!is_device_tensor_builder_initialized_)
     {
         const auto &hparams = spec.hyper_params;
-        int aux_tensor_size = hparams.embd_dims * 6 * hparams.embd_dims;
-        int embd_tensor_size = hparams.embd_dims * hparams.vocab_size;
-        int aux_buffer_capacity = max(aux_tensor_size, embd_tensor_size);
+        int max_tensor_size = hparams.embd_dims * 6 * hparams.embd_dims;
+        int embd_tensor_size = hparams.embd_dims * max(hparams.vocab_size, hparams.padded_vocab_size);
+        int aux_buffer_capacity = max(max_tensor_size, embd_tensor_size);
+        int aux_tensor_size = aux_buffer_capacity;
         int device_id = spec.device_groups[0][0];
         device_tensor_builder_.Init(device_id, aux_buffer_capacity, aux_tensor_size);
 
@@ -1544,11 +1545,34 @@ bool NetworkBuilder::CheckHostModel(const TransformerModel &model) const
     bool is_decoder_only = hparams.encoder_layers <= 0;
     const auto &host_net = model.std_network.host_net;
 
+    int vocab_size = max(hparams.vocab_size, hparams.padded_vocab_size);
+
     //LogKeyInfo("network_structure: %d", (int)model.spec.network_structure);
-    Macro_RetxFalseIf(!is_encoder_only && model.decoder_embeddings == nullptr,
-        LogError("Null decoder token embeddings tensor"));
-    Macro_RetxFalseIf(!is_decoder_only && model.encoder_embeddings == nullptr,
-        LogError("Null encoder token embeddings tensor"));
+    if (!is_encoder_only)
+    {
+        Macro_RetxFalseIf(model.decoder_embeddings == nullptr,
+            LogError("Null decoder token embeddings tensor"));
+        int row_num = model.decoder_embeddings->ne[1];
+        if (row_num > vocab_size)
+        {
+            LogError("The number of %s should NOT be larger than the vocabulary size: %d vs. %d",
+                "decoder embedding rows", row_num, vocab_size);
+            return false;
+        }
+    }
+
+    if (!is_decoder_only)
+    {
+        Macro_RetxFalseIf(model.encoder_embeddings == nullptr,
+            LogError("Null encoder token embeddings tensor"));
+        int row_num = model.encoder_embeddings->ne[1];
+        if (row_num > vocab_size)
+        {
+            LogError("The number of %s should NOT be larger than the vocabulary size: %d vs. %d",
+                "encoder embedding rows", row_num, vocab_size);
+            return false;
+        }
+    }
 
     bool is_encoder = true;
     for (int layer_id = 0; ret && layer_id < (int)host_net.encoder_layers.size(); layer_id++)

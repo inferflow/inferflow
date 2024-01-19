@@ -1,0 +1,49 @@
+{
+    "config_file": "config.json",
+    "model_files":
+    [
+      "pytorch_model.bin.index.json",
+      "pytorch_model-00001-of-00007.bin",
+      "pytorch_model-00002-of-00007.bin",
+      "pytorch_model-00003-of-00007.bin",
+      "pytorch_model-00004-of-00007.bin",
+      "pytorch_model-00005-of-00007.bin",
+      "pytorch_model-00006-of-00007.bin",
+      "pytorch_model-00007-of-00007.bin"
+    ],
+    "model_file_format": "pickle",
+
+    "vocab_size": 64788,
+    "padded_vocab_size": 65024,
+    "tokenizer_file": "tokenizer.model",
+    "tokenization_algorithm": "bpe",
+    "generation_config": "",
+
+    "network_structure":
+    {
+        "type": "transformer.decoder_only",
+        "normalization_function": "rms",
+        "activation_function": "glu_silu",
+        "position_embedding": "rope",
+
+        "qk_column_order": 1,
+        "kq_scale": 1,
+        "qkv_format": 1,
+        "normalize_lm_head": false,
+
+        "tensor_name_prefix": "transformer.",
+        "tensor_name_mapping":
+        {
+            "embedding.word_embeddings.weight": "dec.token_embeddings.weight",
+            "encoder.layers.{i}.input_layernorm.weight": "dec.{i}.self_attn.pre_norm.weight",
+            "encoder.layers.{i}.self_attention.query_key_value.weight": "dec.{i}.self_attn.qkv.weight",
+            "encoder.layers.{i}.self_attention.query_key_value.bias": "dec.{i}.self_attn.qkv.bias",
+            "encoder.layers.{i}.self_attention.dense.weight": "dec.{i}.self_attn.wo.weight",
+            "encoder.layers.{i}.post_attention_layernorm.weight": "dec.{i}.feed_forward.pre_norm.weight",
+            "encoder.layers.{i}.mlp.dense_h_to_4h.weight": "dec.{i}.feed_forward.w1.weight",
+            "encoder.layers.{i}.mlp.dense_4h_to_h.weight": "dec.{i}.feed_forward.w2.weight",
+            "encoder.final_layernorm.weight": "dec.output_norm.weight",
+            "output_layer.weight": "output.weight"
+        }
+    }
+}

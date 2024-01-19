@@ -269,6 +269,7 @@ bool ModelReader::LoadModelSpecJson(ModelSpec &model_spec, const string &file_pa
     model_spec.model_file_format = file_format_iter->second;
 
     jobj.GetFieldValue(hparams.vocab_size, L"vocab_size", jdoc, true);
+    jobj.GetFieldValue(hparams.padded_vocab_size, L"padded_vocab_size", jdoc, true);
     jobj.GetFieldValue(hparams.vocab_size, L"input_vocab_size", jdoc, true);
     jobj.GetFieldValue(hparams.output_vocab_size, L"output_vocab_size", jdoc, true);
 
@@ -370,8 +371,12 @@ bool ModelReader::LoadModelSpecJson(ModelSpec &model_spec, const string &file_pa
         model_spec.pos_embedding_alg = iter->second;
     }
 
+    net_struc_obj.GetFieldValue(model_spec.rope_theta, L"rope_theta", jdoc);
+    net_struc_obj.GetFieldValue(model_spec.partial_rotary_factor, L"partial_rotary_factor", jdoc);
+
     net_struc_obj.GetFieldValue(model_spec.qk_column_order, L"qk_column_order", jdoc);
     net_struc_obj.GetFieldValue(model_spec.qkv_format, L"qkv_format", jdoc);
+    net_struc_obj.GetFieldValue(model_spec.kq_scale, L"kq_scale", jdoc);
     net_struc_obj.GetFieldValue(model_spec.normalize_lm_head, L"normalize_lm_head", jdoc);
     net_struc_obj.GetFieldValue(model_spec.is_parallel_attn, L"is_parallel_attn", jdoc);
     net_struc_obj.GetFieldValue(model_spec.mlp_attn_share_input, L"mlp_attn_share_input", jdoc);
@@ -570,6 +575,9 @@ bool ModelReader::LoadConfigJson(TransformerModel &model, TokenizerConfig &tok_c
             bool is_succ = jobj.GetFieldValue(hparams.decoder_kv_heads, L"num_key_value_heads", jdoc);
             if (!is_succ) {
                 is_succ = jobj.GetFieldValue(hparams.decoder_kv_heads, L"num_kv_heads", jdoc);
+            }
+            if (!is_succ) {
+                is_succ = jobj.GetFieldValue(hparams.decoder_kv_heads, L"multi_query_group_num", jdoc);
             }
 
             if (!is_succ) {
@@ -1538,8 +1546,8 @@ HostTensor* ModelReader::ReadTensor(ElementType data_type, int cx, int cy,
 }
 
 //static
-bool ModelReader::ReadAndTransTensor(HostTensor &tensor, TensorSpec &spec,
-    TransformerContext &ctx, IBinaryStream &strm)
+bool ModelReader::ReadAndTransTensor(HostTensor &tensor, HostTensor *mem_tensor,
+    TensorSpec &spec, TransformerContext &ctx, IBinaryStream &strm)
 {
     bool ret = true;
     int byte_count = (int)TensorCommon::ByteCount((ElementType)spec.data_type, spec.size);
@@ -1551,9 +1559,34 @@ bool ModelReader::ReadAndTransTensor(HostTensor &tensor, TensorSpec &spec,
     spec.data_type = (int)target_data_type;
     tensor.New(target_data_type, spec.dims, spec.ne);
 
+    int data_source_size = mem_tensor == nullptr ? 0 : (int)mem_tensor->size;
+    int target_byte_count = (int)TensorCommon::ByteCount(target_data_type, tensor.size);
+    bool use_mem_tensor = tensor.size < spec.size && mem_tensor != nullptr;
+
     if (src_data_type == target_data_type)
     {
-        ret = strm.Read((char*)tensor.data, byte_count);
+        if (use_mem_tensor)
+        {
+            if (mem_tensor->size > 0)
+            {
+                const uint8_t *src_data = (const uint8_t*)mem_tensor->data;
+                memcpy(tensor.data, src_data + spec.offset_in_data_source, target_byte_count);
+            }
+            else
+            {
+                inferflow_fp16 *data_array = (inferflow_fp16*)ctx.fp16_heap.New(spec.size);
+                strm.Read((char*)data_array, byte_count);
+                memcpy(tensor.data, ((const char*)data_array) + spec.offset_in_data_source,
+                    target_byte_count);
+
+                mem_tensor->Set(src_data_type, data_array, spec.size, 0, 0, false);
+            }
+        }
+        else
+        {
+            ret = strm.Read((char*)tensor.data, byte_count);
+        }
+
         return ret;
     }
 
@@ -1561,10 +1594,24 @@ bool ModelReader::ReadAndTransTensor(HostTensor &tensor, TensorSpec &spec,
     if (src_data_type == ElementType::BF16)
     {
         ctx.fp16_heap.Clear(1);
-        uint16_t *data_array = (uint16_t*)ctx.fp16_heap.New(spec.size);
-        strm.Read((char*)data_array, byte_count);
+
+        uint16_t *data_array = nullptr;
+        if (data_source_size > 0)
+        {
+            data_array = (uint16_t*)mem_tensor->data;
+        }
+        else
+        {
+            data_array = (uint16_t*)ctx.fp16_heap.New(spec.size);
+            strm.Read((char*)data_array, byte_count);
+
+            if (use_mem_tensor) {
+                mem_tensor->Set(src_data_type, data_array, spec.size, 0, 0, false);
+            }
+        }
 
         inferflow_fp16 *target_array = tensor.data_f16();
+        const uint16_t *src_array = data_array + spec.offset_in_data_source;
         uint32_t tensor_size = min((uint32_t)tensor.size, spec.size);
         for (uint32_t idx = 0; idx < tensor_size; idx++)
         {
@@ -1573,7 +1620,7 @@ bool ModelReader::ReadAndTransTensor(HostTensor &tensor, TensorSpec &spec,
 #           pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 
-            uint32_t u32_value = (uint32_t)data_array[idx];
+            uint32_t u32_value = (uint32_t)src_array[idx];
             u32_value <<= 16;
             inferflow_fp16 f16_value = (inferflow_fp16)*(const float*)&u32_value;
             target_array[idx] = f16_value;
@@ -1586,13 +1633,28 @@ bool ModelReader::ReadAndTransTensor(HostTensor &tensor, TensorSpec &spec,
     else if (src_data_type == ElementType::F32)
     {
         ctx.float_heap.Clear(1);
-        float *data_array = ctx.float_heap.New(spec.size);
-        strm.Read((char*)data_array, byte_count);
 
-        inferflow_fp16 *target_array = tensor.data_f16();
-        for (uint32_t idx = 0; idx < spec.size; idx++)
+        float *data_array = nullptr;
+        if (data_source_size > 0)
         {
-            inferflow_fp16 f16_value = (inferflow_fp16)data_array[idx];
+            data_array = (float*)mem_tensor->data;
+        }
+        else
+        {
+            data_array = ctx.float_heap.New(spec.size);
+            strm.Read((char*)data_array, byte_count);
+
+            if (use_mem_tensor) {
+                mem_tensor->Set(src_data_type, data_array, spec.size, 0, 0, false);
+            }
+        }
+
+        const float *src_array = data_array + spec.offset_in_data_source;
+        inferflow_fp16 *target_array = tensor.data_f16();
+        uint32_t tensor_size = min((uint32_t)tensor.size, spec.size);
+        for (uint32_t idx = 0; idx < tensor_size; idx++)
+        {
+            inferflow_fp16 f16_value = (inferflow_fp16)src_array[idx];
             target_array[idx] = f16_value;
         }
     }
@@ -1764,17 +1826,29 @@ bool ModelReader::Pickle_ReadHeader(TransformerModel &model,
 
     int warning_count = 0;
     TensorSpec tensor;
-    string storage;
+    string storage, tensor_section_name;
     ElementType data_type = ElementType::F16;
     ElementType local_data_type = ElementType::F16;
+    map<int, string> section_map; //key-id to section sid
     map<int, ElementType> pushed_data_types;
     bool has_collections = false, need_storage = false;
+    int put_get_count_after_marks = 0;
     int opr_num = (int)opr_list.size();
     for (int idx = 0; idx < opr_num; idx++)
     {
         const auto &opr = opr_list[idx];
         const PickleOperation *next_opr = idx + 1 < opr_num ? &opr_list[idx + 1] : nullptr;
         const PickleOperation *prev_opr = idx > 0 ? &opr_list[idx - 1] : nullptr;
+
+        if (opr.cat == PickleOpcat::Mark && prev_opr != nullptr
+            && prev_opr->cat == PickleOpcat::Mark)
+        {
+            put_get_count_after_marks = 0;
+        }
+
+        if (opr.cat == PickleOpcat::Put || opr.cat == PickleOpcat::Get) {
+            put_get_count_after_marks++;
+        }
 
         //if (has_collections && opr.cat == PickleOpcat::PushString)
         if (opr.cat == PickleOpcat::PushString)
@@ -1790,16 +1864,12 @@ bool ModelReader::Pickle_ReadHeader(TransformerModel &model,
             }
             else if (strlen(opr.arg1.str) > 0 && opr.arg1.str[0] >= '0' && opr.arg1.str[0] <= '9')
             {
-                auto section_iter = section_to_tensor_name_map.find(opr.arg1.str);
-                if (section_iter == section_to_tensor_name_map.end())
+                tensor_section_name = opr.arg1.str;
+
+                if (put_get_count_after_marks == 2 && next_opr != nullptr
+                    && next_opr->cat == PickleOpcat::Put)
                 {
-                    StrAndCount snc(tensor.name, 1);
-                    section_to_tensor_name_map[opr.arg1.str] = snc;
-                }
-                else
-                {
-                    section_iter->second.count++;
-                    tensor.data_source = model.tensor_spec_table.GetIndex(section_iter->second.str);
+                    section_map[next_opr->arg1.nv] = opr.arg1.str;
                 }
             }
 
@@ -1843,6 +1913,14 @@ bool ModelReader::Pickle_ReadHeader(TransformerModel &model,
             if (iter_find != pushed_data_types.end()) {
                 local_data_type = iter_find->second;
             }
+
+            if (put_get_count_after_marks == 3 && opr.cat == PickleOpcat::Get)
+            {
+                auto section_iter = section_map.find(opr.arg1.nv);
+                if (section_iter != section_map.end()) {
+                    tensor_section_name = section_iter->second;
+                }
+            }
         }
 
         if (opr.cat == PickleOpcat::TupleX && prev_opr != nullptr
@@ -1861,6 +1939,15 @@ bool ModelReader::Pickle_ReadHeader(TransformerModel &model,
                     const PickleOperation &prev2 = opr_list[idx - 2];
                     tensor.ne[1] = prev2.arg1.nv;
                     tensor.dims++;
+                    if (idx >= 3)
+                    {
+                        const PickleOperation &prev3 = opr_list[idx - 3];
+                        if (prev3.cat == PickleOpcat::PushInt && prev3.arg_num >= 1)
+                        {
+                            tensor.offset_in_data_source = prev3.arg1.nv;
+                            tensor.has_start_offset = true;
+                        }
+                    }
                 }
             }
         }
@@ -1876,7 +1963,8 @@ bool ModelReader::Pickle_ReadHeader(TransformerModel &model,
                     tensor_size *= tensor.ne[dim_idx];
                 }
 
-                if (tensor_size != tensor.size)
+                if (tensor_size != tensor.size && !tensor.has_start_offset
+                    || tensor_size > tensor.size)
                 {
                     //LogKeyInfo("The size of %s is adjusted from %d to %d",
                     //    tensor.name.c_str(), tensor.size, tensor_size);
@@ -1889,8 +1977,16 @@ bool ModelReader::Pickle_ReadHeader(TransformerModel &model,
                     }
                 }
 
-                model.tensor_spec_table.Add(tensor);
+                int new_tensor_idx = model.tensor_spec_table.Add(tensor);
+                if (!tensor_section_name.empty() && new_tensor_idx >= 0)
+                {
+                    auto &new_tensor = model.tensor_spec_table.tensor_array[new_tensor_idx];
+                    Pickle_HandleSectionName(section_to_tensor_name_map, new_tensor,
+                        model, tensor_section_name);
+                    tensor_section_name.clear();
+                }
             }
+
             //LogKeyInfo("tensor: %s, local_data_type: %d",
             //    tensor.name.c_str(), local_data_type);
             tensor.Clear();
@@ -1905,9 +2001,31 @@ bool ModelReader::Pickle_ReadHeader(TransformerModel &model,
     return ret;
 }
 
+//static
+void ModelReader::Pickle_HandleSectionName(map<string, StrAndCount> &section_to_tensor_name_map,
+    TensorSpec &tensor, const TransformerModel &model, const string &section_name)
+{
+    int tensor_id = model.tensor_spec_table.GetIndex(tensor.name);
+    auto section_iter = section_to_tensor_name_map.find(section_name);
+    if (section_iter == section_to_tensor_name_map.end())
+    {
+        StrAndCount snc(tensor.name, 1);
+        snc.tensor_id_arr[0] = tensor_id;
+        section_to_tensor_name_map[section_name] = snc;
+    }
+    else
+    {
+        auto &snc = section_iter->second;
+        snc.tensor_id_arr[snc.count] = tensor_id;
+        snc.count++;
+        tensor.data_source = model.tensor_spec_table.GetIndex(snc.str);
+    }
+}
+
 int ModelReader::Pickle_ReadTensor(TransformerModel &model, TransformerContext &ctx,
     IBinaryStream &strm, PickleReader &reader, int file_idx,
-    const map<string, StrAndCount> &section_to_tensor_name_map, bool is_study_mode)
+    const map<string, StrAndCount> &section_to_tensor_name_map,
+    bool is_study_mode)
 {
     string section_name;
     HostTensorMap &tensor_map = model.std_network.tensor_map;
@@ -1940,6 +2058,7 @@ int ModelReader::Pickle_ReadTensor(TransformerModel &model, TransformerContext &
     }
 
     int tensor_count = iter_section->second.count;
+    const auto &tensor_id_arr = iter_section->second.tensor_id_arr;
     const string &tensor_name = iter_section->second.str;
     int tensor_idx = tensor_table.GetIndex(tensor_name);
     if (tensor_idx < 0)
@@ -1947,13 +2066,6 @@ int ModelReader::Pickle_ReadTensor(TransformerModel &model, TransformerContext &
         LogWarning("Cannot find tensor %s", tensor_name.c_str());
         return -1;
     }
-
-    //int tensor_idx = atoi(section_name.substr(pos + 1).c_str());
-    //if (tensor_idx + base_idx >= (int)tensor_specs.size())
-    //{
-    //    LogError("Invalid tensor index: %d", tensor_idx);
-    //    return -1;
-    //}
 
     TensorSpec &tensor_spec = tensor_table.tensor_array[tensor_idx];
     //auto &spec = tensor_specs[tensor_idx + base_idx];
@@ -1963,21 +2075,44 @@ int ModelReader::Pickle_ReadTensor(TransformerModel &model, TransformerContext &
         //    tensor_idx, spec.name.c_str(), spec.data_type, spec.size);
     }
 
-    bool has_device_tensor = false;
-#if defined(USE_CUDA)
-    if (model.spec.is_eager_device_building)
+    ElementType src_data_type = (ElementType)tensor_spec.data_type;
+    int byte_count = (int)TensorCommon::ByteCount(src_data_type, tensor_spec.size);
+
+    int tensor_size = 1;
+    for (int idx = 0; idx < tensor_spec.dims; idx++) {
+        tensor_size *= tensor_spec.ne[idx];
+    }
+
+    HostTensor mem_tensor(false);
+    HostTensor *mem_tensor_ptr = tensor_size < (int)tensor_spec.size ? &mem_tensor : nullptr;
+    if (mem_tensor_ptr == nullptr && tensor_count > 1) {
+        tensor_count = 1;
+    }
+
+    for (int target_idx = 0; target_idx < tensor_count; target_idx++)
     {
-        string norm_tensor_name;
-        model.network.TransTensorName(norm_tensor_name, tensor_spec.name);
-        if (!norm_tensor_name.empty())
+        int target_tensor_id = tensor_id_arr[target_idx];
+        TensorSpec &target_tensor_spec = tensor_table.tensor_array[target_tensor_id];
+
+        bool has_device_tensor = false;
+#if defined(USE_CUDA)
+        if (model.spec.is_eager_device_building)
         {
+            string norm_tensor_name;
+            model.network.TransTensorName(norm_tensor_name, target_tensor_spec.name);
             TensorNameInfo tni;
-            bool is_succ = NetworkBuilder::ParseTensorName(tni, norm_tensor_name,
-                model.std_network.device_net, model.spec);
+            bool is_succ = false;
+            if (!norm_tensor_name.empty())
+            {
+                is_succ = NetworkBuilder::ParseTensorName(tni, norm_tensor_name,
+                    model.std_network.device_net, model.spec);
+            }
+
             if (is_succ && tni.layer_id >= model.spec.decoder_cpu_layer_count)
             {
                 HostTensor cpu_tensor;
-                ret = ReadAndTransTensor(cpu_tensor, tensor_spec, ctx, strm);
+                ret = ReadAndTransTensor(cpu_tensor, mem_tensor_ptr,
+                    target_tensor_spec, ctx, strm);
                 Macro_RetFalseIf(!ret);
 
                 network_builder_->BuildDeviceTensor(model.std_network.device_net,
@@ -1985,26 +2120,25 @@ int ModelReader::Pickle_ReadTensor(TransformerModel &model, TransformerContext &
                 has_device_tensor = true;
             }
         }
-    }
 #endif //USE_CUDA
 
-    int byte_count = (int)TensorCommon::ByteCount((ElementType)tensor_spec.data_type,
-        tensor_spec.size);
-    if (!has_device_tensor)
-    {
-        HostTensor *host_tensor = ctx.host_tensor_heap.New(1);
-        ret = ReadAndTransTensor(*host_tensor, tensor_spec, ctx, strm);
-        Macro_RetIf(-1, !ret);
+        if (!has_device_tensor)
+        {
+            HostTensor *host_tensor = ctx.host_tensor_heap.New(1);
+            ret = ReadAndTransTensor(*host_tensor, mem_tensor_ptr,
+                target_tensor_spec, ctx, strm);
+            Macro_RetIf(-1, !ret);
 
-        tensor_map[tensor_idx] = host_tensor;
+            tensor_map[tensor_idx] = host_tensor;
 
-        //if (is_study_mode && spec.data_type == (int)ElementType::F16 && spec.size >= 2)
-        //{
-        //    const half *half_array = (half*)spec.host_tensor->data;
-        //    float v1 = (float)half_array[0];
-        //    float v2 = (float)half_array[1];
-        //    LogKeyInfo("name: %s, v1: %f, v2: %f", spec.name.c_str(), v1, v2);
-        //}
+            //if (is_study_mode && spec.data_type == (int)ElementType::F16 && spec.size >= 2)
+            //{
+            //    const half *half_array = (half*)spec.host_tensor->data;
+            //    float v1 = (float)half_array[0];
+            //    float v2 = (float)half_array[1];
+            //    LogKeyInfo("name: %s, v1: %f, v2: %f", spec.name.c_str(), v1, v2);
+            //}
+        }
     }
 
     char key2[] = { (char)0x50, (char)0x4B, (char)0x07, (char)0x08 };
@@ -2203,7 +2337,7 @@ bool ModelReader::Safetensors_ReadTensors(TransformerModel &model,
                 if (is_succ && tni.layer_id >= model.spec.decoder_cpu_layer_count)
                 {
                     HostTensor cpu_tensor;
-                    ret = ReadAndTransTensor(cpu_tensor, tensor_spec, ctx, strm);
+                    ret = ReadAndTransTensor(cpu_tensor, nullptr, tensor_spec, ctx, strm);
                     Macro_RetFalseIf(!ret);
 
                     network_builder_->BuildDeviceTensor(model.std_network.device_net,
@@ -2217,7 +2351,7 @@ bool ModelReader::Safetensors_ReadTensors(TransformerModel &model,
         if (!has_device_tensor)
         {
             HostTensor *host_tensor = ctx.host_tensor_heap.New(1);
-            ret = ReadAndTransTensor(*host_tensor, tensor_spec, ctx, strm);
+            ret = ReadAndTransTensor(*host_tensor, nullptr, tensor_spec, ctx, strm);
             Macro_RetFalseIf(!ret);
 
             model.std_network.tensor_map[tensor_idx] = host_tensor;

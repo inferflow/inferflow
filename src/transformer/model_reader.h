@@ -120,17 +120,19 @@ protected:
     static HostTensor* ReadTensor(ElementType data_type, int cx, int cy,
         IBinaryStream &strm, TransformerContext &ctx);
 
-    static bool ReadAndTransTensor(HostTensor &tensor, TensorSpec &spec,
-        TransformerContext &ctx, IBinaryStream &strm);
+    static bool ReadAndTransTensor(HostTensor &tensor, HostTensor *mem_tensor,
+        TensorSpec &spec, TransformerContext &ctx, IBinaryStream &strm);
 
     void InitTokenByteMap();
     bool DecodeTokenStr(string &target, const wstring &src, int alg) const;
 
 public:
+    const static int MAX_TENSORS_PER_DATA_SECTION = 5;
     struct StrAndCount
     {
         string str;
         int count = 0;
+        int tensor_id_arr[MAX_TENSORS_PER_DATA_SECTION];
 
         StrAndCount(const string &s = "", int c = 0)
         {
@@ -160,9 +162,14 @@ protected:
     static bool Pickle_ReadHeader(TransformerModel &model,
         map<string, StrAndCount> &section_to_tensor_name_map,
         IBinaryStream &strm, PickleReader &reader, int file_idx);
+
     int Pickle_ReadTensor(TransformerModel &model, TransformerContext &ctx,
         IBinaryStream &strm, PickleReader &reader, int file_idx,
-        const map<string, StrAndCount> &section_to_tensor_name_map, bool is_study_mode);
+        const map<string, StrAndCount> &section_to_tensor_name_map,
+        bool is_study_mode);
+
+    static void Pickle_HandleSectionName(map<string, StrAndCount> &section_to_tensor_name_map,
+        TensorSpec &tensor, const TransformerModel &model, const string &section_name);
 
     ////////////////////////////////////////////////////////////////////////////
     // Safetensors format
@@ -175,8 +182,8 @@ protected:
 
     static bool Safetensors_ReadHeader(TransformerModel &model,
         IBinaryStream &strm, JsonParser &jparser);
-    bool Safetensors_ReadTensors(TransformerModel &model,
-        TransformerContext &ctx, IBinaryStream &strm, int base_idx);
+    bool Safetensors_ReadTensors(TransformerModel &model, TransformerContext &ctx,
+        IBinaryStream &strm, int base_idx);
 
     ////////////////////////////////////////////////////////////////////////////
     // llama2.c format
