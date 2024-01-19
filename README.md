@@ -181,8 +181,8 @@ cd inferflow
   cd bin/release (on Windows: cd bin/x64_Release)
   ./inferflow_client
   ```
-  
-  You can also use the CURL command to send a command to the Inferflow service and get inference results. Below is an example:
+
+  You can also use the CURL command to send a HTTP POST request to the Inferflow service and get inference results. Below is an example:
   ```
   curl -X POST -d '{"text": "Write an article about the weather of Seattle.", "res_prefix": "", "decoding_alg": "sample.top_p", "random_seed": 1, "temperature": 0.7, "is_streaming_mode": false}' localhost:8080
   ```
