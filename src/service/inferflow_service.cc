@@ -346,7 +346,7 @@ bool InferFlowServiceCore::HandleRequest_ProcessQuery(string &response,
     StringUtil::ToUtf8(response, jstr_response);
 
     //log
-    LogStatusInfo(L"query_log.v2\tparse_text\t%ls\t%ls\t%.2f\t%.2f",
+    LogStatusInfo(L"query_log.v2\tquery_proc\t%ls\t%ls\t%.2f\t%.2f",
         encoded_request.c_str(),
         nlu_response.header.ret_code.c_str(),
         nlu_response.header.core_time_cost,

@@ -551,16 +551,27 @@ __global__ void ReluActivation_Kernel(int M, int N,
 
 template <typename SourceType, typename TargetType>
 __global__ void SiluActivation_Kernel(int M, int N,
-    SourceType const *S, TargetType *T)
+    SourceType const *S, TargetType *T, bool is_glu)
 {
     int row = threadIdx.y + blockIdx.y * blockDim.y;
     int col = threadIdx.x + blockIdx.x * blockDim.x;
 
     if (row < M && col < N)
     {
-        float x = (float)S[row * N + col];
-        float fx = x/(1.0f + expf(-x));
-        T[row * N + col] = fx;
+        if (is_glu)
+        {
+            float x = (float)S[row * 2 * N + col];
+            float fx = x / (1.0f + expf(-x));
+            fx *= (float)S[row * 2 * N + col + N];
+            T[row * N + col] = fx;
+
+        }
+        else
+        {
+            float x = (float)S[row * N + col];
+            float fx = x / (1.0f + expf(-x));
+            T[row * N + col] = fx;
+        }
     }
 }
 

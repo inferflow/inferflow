@@ -33,6 +33,7 @@ public:
     ElementType data_type_device = ElementType::Auto;
     int data_source = -1;
     int offset_in_data_source = 0;
+    bool has_start_offset = false;
 
     TensorSpec()
     {
@@ -54,6 +55,7 @@ public:
         data_type_device = ElementType::Auto;
         data_source = -1;
         offset_in_data_source = 0;
+        has_start_offset = false;
     }
 };
 

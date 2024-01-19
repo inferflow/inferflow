@@ -462,6 +462,7 @@ void HostTensorOpr::InitActivationFnMap(ActivationFnMap &the_map)
     the_map["relu"] = ActivationFn::RELU;
     the_map["gelu"] = ActivationFn::GELU;
     the_map["silu"] = ActivationFn::SILU;
+    the_map["glu_silu"] = ActivationFn::GLU_SILU;
 }
 
 void HostTensorOpr::InitPositionEmbeddingAlgMap(PositionEmbeddingAlgMap &the_map)

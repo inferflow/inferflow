@@ -501,7 +501,7 @@ DeviceTensor* GpuInferenceWorker::ProcessPostLayer(DeviceTensor *layer_input,
     bool ret = true;
     int cy = input_tensor_->ne[1], cz = input_tensor_->ne[2];
     const auto &model_spec = model_ptr_->spec;
-    const auto &hparams = model_spec.hyper_params;
+    //const auto &hparams = model_spec.hyper_params;
     const StdDeviceNetwork *device_net = GetDeviceNet();
     bool is_b_column_major = !config_ex_->is_gpu_tensor_row_major;
 
@@ -536,12 +536,14 @@ DeviceTensor* GpuInferenceWorker::ProcessPostLayer(DeviceTensor *layer_input,
 
     DeviceTensor *out = is_encoder_ ? norm2 : nullptr;
     TaskMonitor tm;
-    int vocab_size = hparams.output_vocab_size > 0 ? hparams.output_vocab_size : hparams.vocab_size;
+    //int vocab_size = hparams.output_vocab_size > 0 ? hparams.output_vocab_size : hparams.vocab_size;
     if (ret && !is_encoder_ && (is_by_layer_ || id_ + 1 == worker_num_))
     {
         //MatrixMulAlg matrix_mul_alg = MatrixMulAlg::Alg2;
         int scenario_id = 90;
-        out = CreateLocalTensor(ElementType::F16, vocab_size, cy * cz, 0,
+        //do not use vocab_size here (vocab_size may be smaller)
+        int out_cx = device_net->output->ne[1];
+        out = CreateLocalTensor(ElementType::F16, out_cx, cy * cz, 0,
             false, heap_idx, scenario_id);
         bool use_full_quant_gemv = false;
         if (device_net->output_quant != nullptr) {
@@ -768,7 +770,7 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer(int layer_idx,
     if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_)
     {
         PrintTensor(layer_input, 8, 8, 8, "layer_input:\n", layer_idx);
-        PrintTensor(self_att_out.output, 8, 8, 8, "self_att_out (10500):\n", layer_idx);
+        PrintTensor(self_att_out.output, 8, 30, 8, "self_att_out (10500):\n", layer_idx);
     }
 
     if (!model_spec.is_parallel_attn && !model_spec.mlp_attn_share_input)
@@ -776,7 +778,7 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer(int layer_idx,
         //DeviceTensor *ff_input = CreateLocalTensor(*layer_input, true, heap_idx);
         TensorOpr::Add(*self_att_out.output, *layer_input, *self_att_out.output);
         if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_) {
-            PrintTensor(self_att_out.output, 8, 8, 8, "self_att_out (10501):\n", layer_idx);
+            PrintTensor(self_att_out.output, 8, 30, 8, "self_att_out (10501):\n", layer_idx);
         }
     }
 
@@ -983,12 +985,12 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
     if (config_->debug.show_tensors && layer_idx == layer_idx_for_study_)
     {
         //old: (8, 1, 48)
-        PrintTensor(cur_qkv.q, 8, 3, 6, "cur_qkv.q (10203):\n", layer_idx);
+        PrintTensor(cur_qkv.q, 8, 3, 30, "cur_qkv.q (10203):\n", layer_idx);
         if (cur_qkv.k != nullptr) {
-            PrintTensor(cur_qkv.k, 8, 8, 1, "cur_qkv.k (10213):\n", layer_idx);
+            PrintTensor(cur_qkv.k, 8, 30, 2, "cur_qkv.k (10213):\n", layer_idx);
         }
         if (cur_qkv.v != nullptr) {
-            PrintTensor(cur_qkv.v, 8, 8, 8, "cur_qkv.v (10222):\n", layer_idx);
+            PrintTensor(cur_qkv.v, 8, 30, 2, "cur_qkv.v (10222):\n", layer_idx);
         }
         //exit(0);
     }
@@ -1032,7 +1034,7 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
 
     tm.Start();
     //kq_scale: reducing the chance of overflow in calculating q*k
-    float kq_scale = is_alibi ? 1.0f : 10.0f;
+    float kq_scale = is_alibi ? 1.0f : model_ptr_->spec.kq_scale;
     bool is_sub_level = true;
     DeviceTensor *kqv_merged = CreateLocalTensor(ElementType::F16,
         token_sub_dim, all_q_token_num, 0, true, heap_idx);
@@ -1201,12 +1203,12 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
 
         if (config_->debug.show_tensors && layer_idx == layer_idx_for_study_)
         {
-            PrintTensor(kqv, 8, 2, 2, "kqv (10262):\n");
+            PrintTensor(kqv, 8, 30, 2, "kqv (10262):\n");
         }
 
         TensorOpr::TransposeYZ(*kqv);
         if (config_->debug.show_tensors && layer_idx == layer_idx_for_study_) {
-            PrintTensor(kqv, 8, 2, 2, "kqv_trans (10263):\n");
+            PrintTensor(kqv, 8, 2, 30, "kqv_trans (10263):\n");
         }
 
         //if (is_by_layer_)
@@ -1267,7 +1269,7 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
     if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_)
     {
         PrintTensor(layer.wo.tensor, 8, 8, 8, "wo:\n");
-        PrintTensor(out, 8, 8, 8, "self_attn_out (10268):\n");
+        PrintTensor(out, 8, 30, 8, "self_attn_out (10268):\n");
     }
 
     if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_
@@ -1393,7 +1395,7 @@ bool GpuInferenceWorker::Attention_CalculateCurQKV(CurQKV &cur_qkv, int layer_id
 
         if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_)
         {
-            PrintTensor(qkv_tensor, 8, 8, 8, "qkv_tensor (m1):\n");
+            PrintTensor(qkv_tensor, 8, 30, 8, "qkv_tensor (m1):\n");
         }
 
         cur_qkv.q = CreateLocalTensor(data_type, token_sub_dim, new_cy, 0, true, heap_idx);
@@ -1481,7 +1483,7 @@ bool GpuInferenceWorker::Attention_CalculateCurQKV(CurQKV &cur_qkv, int layer_id
     if (is_rope)
     {
         if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_) {
-            PrintTensor(cur_qkv.q, 8, 3, 6, "cur_qkv.q (before_rope.2):\n");
+            PrintTensor(cur_qkv.q, 8, 3, 30, "cur_qkv.q (before_rope.2):\n");
         }
 
         for (const auto &query : query_list_)
@@ -1503,6 +1505,11 @@ bool GpuInferenceWorker::Attention_CalculateCurQKV(CurQKV &cur_qkv, int layer_id
     {
         ret = TensorOpr::Reshape(*cur_qkv.k, 3, head_dim, kv_head_num, kv_token_num);
         Macro_RetxIf(false, !ret, LogError("Reshape failed"));
+
+        if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_) {
+            PrintTensor(cur_qkv.k, 8, 3, 30, "cur_qkv.k (before_rope.2):\n");
+        }
+
         if (is_rope)
         {
             pos_embd_params.heads = kv_head_num; //to do: check it
@@ -1672,7 +1679,7 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_FeedForward(int layer_idx,
     //PrintTensor(layer.ffn_norm.tensor, 8, 8, 8, "ffn_norm:\n");
     //PrintTensor(layer.ffn_norm_b.tensor, 8, 8, 8, "ffn_norm_b:\n");
     if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_) {
-        PrintTensor(norm2, 8, 8, 8, "norm2 (10302):\n");
+        PrintTensor(norm2, 8, 30, 8, "norm2 (10302):\n");
     }
 
     tm.Start();
@@ -1708,7 +1715,7 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_FeedForward(int layer_idx,
     }
 
     tm.Start();
-    DeviceTensor *act = CreateLocalTensor(*t1, true, heap_idx);
+    DeviceTensor *act = CreateActivationTarget(*t1, model_spec.activation_fn, true, heap_idx);
     TensorOpr::Activation(*act, *t1, model_spec.activation_fn);
     if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_) {
         PrintTensor(act, 8, 8, 8, "act (10321):\n");
@@ -2207,6 +2214,32 @@ DeviceTensor* GpuInferenceWorker::CreateTensor(ElementType etype,
     }
 
     return new_tensor;
+}
+
+DeviceTensor* GpuInferenceWorker::CreateActivationTarget(const DeviceTensor &ref_tensor,
+    ActivationFn fn, bool is_layer_local, int heap_idx)
+{
+    bool is_glu = false;
+    switch (fn)
+    {
+    case ActivationFn::GLU_SIGMOID:
+    case ActivationFn::GLU_ELU:
+    case ActivationFn::GLU_RELU:
+    case ActivationFn::GLU_GELU:
+    case ActivationFn::GLU_SILU:
+        is_glu = true;
+        break;
+    default: break;
+    }
+
+    if (is_glu)
+    {
+        const auto &ne = ref_tensor.ne;
+        return CreateLocalTensor(ref_tensor.data_type, ne[0] / 2, ne[1], ne[2],
+            is_layer_local, heap_idx);
+    }
+
+    return CreateLocalTensor(ref_tensor, is_layer_local, heap_idx);
 }
 
 DeviceTensor* GpuInferenceWorker::CreateLocalTensor(const DeviceTensor &ref_tensor,

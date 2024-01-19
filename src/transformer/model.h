@@ -41,6 +41,7 @@ typedef map<string, MultiGpuStrategy, StrLessNoCase> MultiGpuStrategyMap;
 struct ModelHyperParams
 {
     int vocab_size = 0;         //vocabulary size
+    int padded_vocab_size = 0;  //padded vocab size
     int output_vocab_size = 0;  //output vocabulary size
     int embd_dims = 4096;       //token embedding dimensions
 
@@ -85,6 +86,7 @@ struct ModelSpec
 
     int qk_column_order = 0;
     int qkv_format = 0; //0: first split by head, then Q+K+V; 1: Q+K+V
+    float kq_scale = 1.0f;
     bool transform_qk = false;
     bool normalize_lm_head = false;
     bool is_parallel_attn = false;

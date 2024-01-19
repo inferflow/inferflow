@@ -99,12 +99,15 @@ bool TensorMul::Gemv_AX(DeviceTensor &Y, const DeviceTensor &A, const DeviceTens
 {
     bool ret = true;
     int M = A.Rows(), N = A.Columns();
-    if (X.size != N) {
+    if (X.size != N)
+    {
         LogError("A and X are not compatible");
         return false;
     }
-    if (Y.size != M) {
-        LogError("A and Y are not compatible");
+    if (Y.size != M)
+    {
+        LogError("A and Y are not compatible: (%d, %d, %d) vs. (%d, %d, %d))",
+            Y.ne[0], Y.ne[1], Y.ne[2], A.ne[0], A.ne[1], A.ne[2]);
         return false;
     }
 

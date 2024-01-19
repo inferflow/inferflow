@@ -80,7 +80,7 @@ public:
 
     static bool Activation(DeviceTensor &B, const DeviceTensor &A, ActivationFn fn);
     static bool ReluActivation(DeviceTensor &B, const DeviceTensor &A);
-    static bool SiluActivation(DeviceTensor &B, const DeviceTensor &A);
+    static bool SiluActivation(DeviceTensor &B, const DeviceTensor &A, bool is_glu);
     static bool GeluActivation(DeviceTensor &B, const DeviceTensor &A);
 
     static bool SoftMax(DeviceTensor &A,

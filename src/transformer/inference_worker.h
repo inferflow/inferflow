@@ -222,6 +222,9 @@ protected:
     bool DequantizeTensor(DeviceTensorEx &target, const DeviceTensorEx &source,
         bool be_transpose = false, bool be_sync = true) const;
 
+    DeviceTensor* CreateActivationTarget(const DeviceTensor &ref_tensor,
+        ActivationFn fn, bool is_layer_local, int heap_idx);
+
     DeviceTensor* CreateLocalTensor(const DeviceTensor &ref_tensor,
         bool is_layer_local, int heap_idx);
     DeviceTensor* CreateLocalTensor(ElementType etype, int ne0, int ne1, int ne2,

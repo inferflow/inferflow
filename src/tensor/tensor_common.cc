@@ -170,7 +170,7 @@ void TensorCommon::InitElementTypeMap(ElementTypeMap &type_map)
     type_map["f16"] = ElementType::F16;
     type_map["q8"] = ElementType::Q8_B32T2;
     type_map["q6"] = ElementType::Q6_B64T1;
-    type_map["q5"] = ElementType::Q5_B32T1;
+    type_map["q5"] = ElementType::Q5_B64T1;
     type_map["q4"] = ElementType::Q4_B32T1A;
     type_map["q3h"] = ElementType::Q3H_B64T1;
     type_map["q3"] = ElementType::Q3_B32T1B;
