@@ -21,6 +21,7 @@
         "position_embedding": "rope",
         
         "qk_column_order": 2,
+        "kq_scale": 10,
         "is_parallel_attn": true,
 
         "tensor_name_prefix": "model.",
