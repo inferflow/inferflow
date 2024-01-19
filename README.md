@@ -181,6 +181,11 @@ cd inferflow
   cd bin/release (on Windows: cd bin/x64_Release)
   ./inferflow_client
   ```
+  
+  You can also use the CURL command to send a command to the Inferflow service and get inference results. Below is an example:
+  ```
+  curl -X POST -d '{"text": "Write an article about the weather of Seattle.", "res_prefix": "", "decoding_alg": "sample.top_p", "random_seed": 1, "temperature": 0.7, "is_streaming_mode": false}' localhost:8080
+  ```
 
 ### Acknowledgements
 Inferflow is inspired by the awesome projects of [llama.cpp](https://github.com/ggerganov/llama.cpp) and [llama2.c](https://github.com/karpathy/llama2.c). The CPU inference part of Inferflow is based on the [ggml](https://github.com/ggerganov/ggml) library. The FP16 data type in the CPU-only version of Inferflow is from the [Half-precision floating-point library](https://half.sourceforge.net/). We express our sincere gratitude to the maintainers and implementers of these source codes and tools.
