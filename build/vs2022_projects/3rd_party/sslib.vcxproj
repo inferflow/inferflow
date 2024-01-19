@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="mt|Win32">
+      <Configuration>mt</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="mt|x64">
+      <Configuration>mt</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\3rd_party\sslib\app_environment.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\naive_trie.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\rpc_server.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\binary_file_stream.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\blocked_allocator.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\cache.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\chained_str_stream.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\computer_process.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\config_data.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\date_time.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\dict_helper.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\edit_distance.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\base_tcp_server.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\error_info.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\path.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\graph_helper.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\hash.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\html_utility.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\http_client.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\http_common.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\http_server.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\http_utility.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\int_dict.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\item_dict.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\json.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\log.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\math_decimal.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\math_fraction.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\math_utils.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\naive_matrix.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\net_msg.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\number.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\numerical_util.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\random.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\row_reader.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\service_data_types.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\socket.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\socket_group.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\sparse_vector.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\std_static_graph.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\std_static_matrix.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\stream_helper.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\string.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\string_blocked_heap.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\string_util.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\string_dict.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\string_vector.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\sub_str_lookup_tree.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\task_monitor.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\rpc_client.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\task_queue.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\test_manager.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\thread.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\thread_group.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\time_span.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\top_k_queue.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\unicode_table.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\vector_util.cc" />
+    <ClCompile Include="..\..\..\3rd_party\sslib\worker_pool.cc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\3rd_party\sslib\app_environment.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\naive_trie.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\rpc_server.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\basic_headers.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\binary_file_stream.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\blocked_allocator.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\blocked_array.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\cache.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\chained_str_stream.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\computer_process.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\config_data.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\date_time.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\dict_helper.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\edit_distance.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\base_tcp_server.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\error_info.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\path.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\graph_helper.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\hash.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\hashtable.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\html_utility.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\http_client.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\http_common.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\http_server.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\http_utility.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\binary_stream.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\int_dict.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\serializable.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\socket_serializable.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\item_dict.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\json.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\log.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\macro.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\map.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\math_decimal.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\math_fraction.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\math_utils.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\measurement_unit.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\memory_check.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\naive_matrix.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\net_msg.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\number.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\numerical_util.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\int_range.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\prime_types.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\service_data_types.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\string_dict.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\string_vector.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\task_queue.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\test_manager.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\thread_group.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\vector_ex.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\random.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\raw_array.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\row_reader.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\socket.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\socket_group.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\sparse_vector.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\std_static_graph.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\std_static_matrix.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\stream_helper.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\string.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\string_blocked_heap.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\string_util.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\sub_str_lookup_tree.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\task_monitor.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\rpc_client.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\thread.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\time_span.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\top_k_queue.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\unicode_table.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\vector_util.h" />
+    <ClInclude Include="..\..\..\3rd_party\sslib\worker_pool.h" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{AC24BCA2-0190-482B-A920-49196B5020DB}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>sslib</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='mt|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='mt|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='mt|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='mt|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(ProjectDir)..\..\..\bin\$(Platform)_$(Configuration)\</OutDir>
+    <IntDir>..\.vs_obj\$(PlatformTarget)_$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(ProjectDir)..\..\..\bin\$(Platform)_$(Configuration)\</OutDir>
+    <IntDir>..\.vs_obj\$(PlatformTarget)_$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='mt|Win32'">
+    <OutDir>$(ProjectDir)..\..\..\bin\$(Platform)_$(Configuration)\</OutDir>
+    <IntDir>..\.vs_obj\$(PlatformTarget)_$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(ProjectDir)..\..\..\bin\$(Platform)_$(Configuration)\</OutDir>
+    <IntDir>..\.vs_obj\$(PlatformTarget)_$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(ProjectDir)..\..\..\bin\$(Platform)_$(Configuration)\</OutDir>
+    <IntDir>..\.vs_obj\$(PlatformTarget)_$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='mt|x64'">
+    <OutDir>$(ProjectDir)..\..\..\bin\$(Platform)_$(Configuration)\</OutDir>
+    <IntDir>..\.vs_obj\$(PlatformTarget)_$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;WIN32_LEAN_AND_MEAN;_LIB;WIN32;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <AdditionalIncludeDirectories>..\..\..\3rd_party</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;WIN32_LEAN_AND_MEAN;_LIB;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <AdditionalIncludeDirectories>..\..\..\3rd_party</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;WIN32_LEAN_AND_MEAN;_LIB;WIN32;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <AdditionalIncludeDirectories>..\..\..\3rd_party</AdditionalIncludeDirectories>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='mt|Win32'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;WIN32_LEAN_AND_MEAN;_LIB;WIN32;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <AdditionalIncludeDirectories>..\..\..\3rd_party</AdditionalIncludeDirectories>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;WIN32_LEAN_AND_MEAN;_LIB;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <AdditionalIncludeDirectories>..\..\..\3rd_party</AdditionalIncludeDirectories>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='mt|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;WIN32_LEAN_AND_MEAN;_LIB;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <AdditionalIncludeDirectories>..\..\..\3rd_party</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
