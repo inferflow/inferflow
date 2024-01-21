@@ -101,7 +101,7 @@ Run an HTTP client, to interact with the Inferflow service via HTTP protocol to 
 
 * **Option-2**. Use a third-party REST client (e.g., the Chrome extension of ```Tabbed Postman```).
 
-  - **URL**: ```http://localhost:8080``` (If you access the service from a different machine)
+  - **URL**: ```http://localhost:8080``` (If you access the service from a different machine, please replace "localhost" with the service IP)
   
   - **HTTP method**: ```POST```
   
