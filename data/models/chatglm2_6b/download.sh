@@ -1,5 +1,6 @@
-
-# Data homepage: https://huggingface.co/THUDM/chatglm2-6b
+# Model: ChatGLM2-6B
+# ChatGLM2-6B is the second-generation version of the open-source bilingual (Chinese-English) chat model ChatGLM-6B.
+# URL: https://huggingface.co/THUDM/chatglm2-6b
 
 SRC_DIR=https://huggingface.co/THUDM/chatglm2-6b/resolve/main
 
