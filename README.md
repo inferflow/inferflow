@@ -82,10 +82,15 @@ Users can serve a model with Inferflow by editing a model specification file. We
 - [X] Mistral (mistral_7b_instruct)
 - [X] Open LLAMA (open_llama_3b)
 - [X] Phi-2 (phi_2)
+- [X] XVERSE (xverse_13b_chat)
 - [X] YI (yi_6b, yi_34b_chat)
 
 
 ## Getting Started
+
+**Windows** users: Please refer to [docs/getting_started.win.md](docs/getting_started.win.md) for the instructions about building and running the Inferflow tools and service on Windows.
+
+The following instructions are for **Linux**, **Mac**, and **WSL** (Windows Subsystem for Linux).
 
 ### Get the Code
 
@@ -95,92 +100,119 @@ cd inferflow
 ```
 
 ### Build
-* Build with cmake on Linux, Mac, and WSL (Windows Subsystem for Linux):
-  - Build the GPU version (that supports GPU/CPU hybrid inference):
+* Build the GPU version (that supports GPU/CPU hybrid inference):
 
-    ```bash
-    mkdir build/gpu
-    cd build/gpu
-    cmake ../.. -DUSE_CUDA=1 -DCMAKE_CUDA_ARCHITECTURES=75
-    make install -j 8
-    ```
+  ```bash
+  mkdir build/gpu
+  cd build/gpu
+  cmake ../.. -DUSE_CUDA=1 -DCMAKE_CUDA_ARCHITECTURES=75
+  make install -j 8
+  ```
 
-  - Build the CPU-only version:
+* Build the CPU-only version:
   
-    ```bash
-    mkdir build/cpu
-    cd build/cpu
-    cmake ../.. -DUSE_CUDA=0
-    make install -j 8
-    ```
+  ```bash
+  mkdir build/cpu
+  cd build/cpu
+  cmake ../.. -DUSE_CUDA=0
+  make install -j 8
+  ```
 
-  Upon a successful build, executables are generated and copied to
+Upon a successful build, executables are generated and copied to
         ```bin/release/```
 
-* Build with Visual Studio on Windows:
+### Run the LLM Inferencing Tool (bin/llm_inference)
 
-  Open one of the following sln files in build/vs_projects:
-  - __inferflow.sln__: The GPU version that supports GPU/CPU hybrid inference
-  - __inferflow_cpu.sln__: The CPU-only version
+* **Example-1**: Load a tiny model and perform inference
 
-  For the Debug configuration, executables are generated to ```bin/x64_Debug/```; while the output directory for the Release configuration is ```bin/x64_Release/```.
+  - **Step-1**: Download the model
+
+    ```
+    #> cd {inferflow-root-dir}/data/models/llama2.c/
+    #> bash download.sh
+    ```
+    Instead of running the above batch script, you can also manually download the model files and copy them to the above folder. The source URL and file names can be found from download.sh.
+
+  - **Step-2**: Run the **llm_inference** tool:
+
+    ```
+    #> cd {inferflow-root-dir}/bin/
+    #> release/llm_inference llm_inference.tiny.ini
+    ```
+    Please note that it is okay for ```llm_inference``` and ```llm_inference.tiny.ini``` not being in the same folder (llm_inference.tiny.ini is in bin/ and llm_inference is in bin/release/).
+
+* **Example-2**: Run the **llm_inference** tool to load a larger model for inference
+
+  - **Step-1**: Edit configuration file **bin/inferflow_service.ini** to choose a model.
+
+    In the "transformer_engine" section of bin/inferflow_service.ini, there are multiple lines starting with "```models = ```" or "```;models = ```".
+    The lines starting with the "**;**" character are comments.
+    To choose a model for inference, please uncomment the line corresponding to this model, and comment the lines of other models.
+    By default, the **phi-2** model is selected.
   
-### Run the Service and Tools
+  - **Step-2**: Download the selected model
+    ```
+    #> cd {inferflow-root-dir}/data/models/{model-name}/
+    #> bash download.sh
+    ```
 
-* Example-1: Load a tiny model and perform inference
+  - **Step-3**: Edit configuration file **bin/llm_inference.ini** to choose or edit a query.
 
-  Step-1: Download the model
+    In the configuration file, queries are organized into query lists. A query list can contain one or multiple queries.
+    Different query lists are for different purposes. For example, ```query_list.decoder_only``` is for testing decoder-only models. Its detailed information can be configured in the ```query_list.decoder_only``` section.
+    The starting line of this section is "```query_count = 1```", which means only one query is included in this query list.
+    Among the following lines with key ```query1```, only one line is uncommented and therefore effective, whereas other lines (i.e., the lines starting with a "**;**" character) are commented.
+    You can choose a query for testing by uncommenting this query and commenting all the other queries. You can, of course, add new queries or change the content of an existing query.
+  
+  - **Step-4**: Run the tool:
 
+    ```
+    #> cd {inferflow-root-dir}/bin/
+    #> release/llm_inference
+    ```
+
+### Run the Inferflow Service (bin/inferflow_service)
+
+  * **Step-1**: Edit the service configuration file (bin/inferflow_service.ini)
+
+  * **Step-2**: Start the service:
+    ```
+    #> cd bin
+    #> release/inferflow_service
+    ```
+
+### Test the Inferflow service
+
+Run an HTTP client, to interact with the Inferflow service via the HTTP protocol to get inference results.
+
+* **Option-1**. Run the Inferflow client tool: inferflow_client
+
+  - **Step-1**: Edit the configuration file (bin/inferflow_client.ini) to set the service address, query text, and options.
+
+  - **Step-2**: Run the client tool to get inference results.
   ```
-  cd {inferflow-root-dir}/data/models/llama2.c/
-  bash download.sh
-  ```
-
-  Step-2: Run the **llm_inference** tool:
-
-  ```
-  cd {inferflow-root-dir}/bin/
-  release/llm_inference llm_inference.tiny.ini
-  ```
-
-* Example-2: Run the **llm_inference** tool to load a larger model for inference
-
-  Step-1: Edit configuration file **bin/llm_inference.ini** to choose a model
-
-  Step-2: Download the selected model
-  ```
-  cd {inferflow-root-dir}/data/models/{model-name}/
-  bash download.sh
-  ```
-
-  Step-3: Run the tool:
-
-  ```
-  cd {inferflow-root-dir}/bin/
-  release/llm_inference
-  ```
-
-* Start the Inferflow service:
-
-  Step-1: Edit the service configuration file (bin/inferflow_service.ini)
-
-  Step-2: Start the service:
-  ```
-  cd bin/release (on Windows: cd bin/x64_Release)
-  ./inferflow_service
-  ```
-
-* Run the Inferflow client (for interacting with the Inferflow service via HTTP protocol to get inference results):
-
-  Step-1: Edit the configuration file (bin/inferflow_client.ini)
-
-  Step-2: Run the client tool:
-  ```
-  cd bin/release (on Windows: cd bin/x64_Release)
-  ./inferflow_client
+  #> cd bin
+  #> release/inferflow_client
   ```
 
-### Reference
+* **Option-2** The CURL command
+
+  You can also use the CURL command to send a HTTP POST request to the Inferflow service and get inference results. Below is an example:
+  ```
+  curl -X POST -d '{"text": "Write an article about the weather of Seattle.", "res_prefix": "", "decoding_alg": "sample.top_p", "random_seed": 1, "temperature": 0.7, "is_streaming_mode": false}' localhost:8080
+  ```
+
+* **Option-3**. Use GUI REST client (e.g., the Chrome extension of ```Tabbed Postman```).
+
+  - **URL**: ```http://localhost:8080``` (If you access the service from a different machine, please replace "localhost" with the service IP)
+  
+  - **HTTP method**: ```POST```
+  
+  - **Example body text**: ```{"text": "Write an article about the weather of Seattle.", "res_prefix": "", "decoding_alg": "sample.top_p", "random_seed": 1, "temperature": 0.7, "is_streaming_mode": 0}```
+
+
+
+## Reference
 If you are interested in our work, please kindly cite:
 ```bib
 @misc{shi2024inferflow,
@@ -192,11 +224,6 @@ If you are interested in our work, please kindly cite:
     primaryClass={cs.CL}
 }
 ```
-=======
-  You can also use the CURL command to send a HTTP POST request to the Inferflow service and get inference results. Below is an example:
-  ```
-  curl -X POST -d '{"text": "Write an article about the weather of Seattle.", "res_prefix": "", "decoding_alg": "sample.top_p", "random_seed": 1, "temperature": 0.7, "is_streaming_mode": false}' localhost:8080
-  ```
 
-### Acknowledgements
+## Acknowledgements
 Inferflow is inspired by the awesome projects of [llama.cpp](https://github.com/ggerganov/llama.cpp) and [llama2.c](https://github.com/karpathy/llama2.c). The CPU inference part of Inferflow is based on the [ggml](https://github.com/ggerganov/ggml) library. The FP16 data type in the CPU-only version of Inferflow is from the [Half-precision floating-point library](https://half.sourceforge.net/). We express our sincere gratitude to the maintainers and implementers of these source codes and tools.
