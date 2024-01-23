@@ -212,7 +212,7 @@ bool Run(const string &config_path)
         LogWarning("Failed to open the perf_stat file");
     }
 
-    LogKeyInfo("========== Calling evaluation ==========");
+    LogKeyInfo("========== Inference ==========");
 
     //const auto &context = engine.context();
     string prompt = " ";
@@ -337,8 +337,7 @@ bool Run(const string &config_path)
         max_output_len = 50000;
     }
 
-    //int token_id = engine.TokenStrToId("</s>");
-    //cout << "eos: " << token_id << endl;
+    cout << endl << "Inference results:" << endl;
 
     int end_query_count = 0;
     bool is_continue = true;
