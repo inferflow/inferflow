@@ -95,7 +95,8 @@ void QueryStateTable::Get(map<int, const QueryState*> &query_map, NetworkType ne
 
 int QueryStateTable::Add(const vector<int> &encoder_input_tokens,
     const vector<int> &decoder_prefix_tokens,
-    const ModelSpec &model_spec, int sampling_strategy)
+    const ModelSpec &model_spec, int sampling_strategy,
+    int max_output_tokens)
 {
     const auto &hparams = model_spec.hyper_params;
 
@@ -110,7 +111,9 @@ int QueryStateTable::Add(const vector<int> &encoder_input_tokens,
     state->encoder_input_tokens = encoder_input_tokens;
     state->decoder_tokens = decoder_prefix_tokens;
     state->prefix_len = 0;
+    state->initial_prefix_len = (int)decoder_prefix_tokens.size();
     state->sampling_strategy = sampling_strategy;
+    state->max_output_tokens = max_output_tokens;
     state->is_encoder_only = hparams.decoder_layers <= 0;
 
 #if defined(USE_CUDA)

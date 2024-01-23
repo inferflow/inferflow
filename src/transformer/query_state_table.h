@@ -26,6 +26,8 @@ struct QueryState
     vector<int> decoder_tokens;
     vector<int> prefix_tokens;
     int prefix_len = 0;
+    int initial_prefix_len = 0;
+    int max_output_tokens = -1;
     int sampling_strategy = 0;
 
     bool is_encoder_only = false;
@@ -58,7 +60,9 @@ public:
 
     int Add(const vector<int> &encoder_input_tokens,
         const vector<int> &decoder_prefix_tokens,
-        const ModelSpec &model_spec, int sampling_strategy = 0);
+        const ModelSpec &model_spec,
+        int sampling_strategy = 0,
+        int max_output_tokens = -1);
 
 #if defined(USE_CUDA)
     bool UpdateEncoderEnd(int query_id, const DeviceTensor &output_tensor,

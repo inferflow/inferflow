@@ -123,6 +123,7 @@ struct QueryInferenceInput
     int query_id = 0;
     vector<int> tokens;
     int prefix_len = 0;
+    int max_output_len = -1;
     int sampling_strategy = 0;
 };
 

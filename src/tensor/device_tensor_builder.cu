@@ -175,17 +175,62 @@ bool DeviceTensorBuilder::Build(vector<DeviceTensorEx*> &targets,
     int cx_new = be_trans ? cy : cx;
     int cy_new = be_trans ? cx : cy;
 
-    if (is_gpu_quant)
-    {
-        LogKeyInfo("tensor (%d, %d, %d), is_gpu_quant: yes, force_dequant: %s",
-            cx, cy, cz, force_dequant ? "yes" : "no");
-    }
-
     if (is_gpu_quant && !force_dequant)
     {
-        LogError("The quant version has not been impelemnted yet.");
-        //ret = Build_Quant(target, cpu_tensor, aux_buffer,
-        //    device_data_type, be_trans, aux_tensor);
+        //if (is_gpu_quant)
+        //{
+        //    LogKeyInfo("tensor (%d, %d, %d), is_gpu_quant: yes, partition_type: %d",
+        //        cx, cy, cz, (int)partition_type);
+        //}
+
+        if (be_trans)
+        {
+            LogError("The quant version has not been impelemnted yet.");
+            return false;
+        }
+
+        DeviceTensor target_tensor;
+        DeviceTensorEx target;
+        target.tensor = &target_tensor;
+        ret = Build_Quant(target, cpu_tensor, aux_buffer, device_data_type,
+            be_trans, aux_tensor);
+        if (partition_type == TensorPartitionType::BY_COL)
+        {
+            int target_cy = cy_new / target_num;
+            int bytes = (int)TensorCommon::ByteCount(device_data_type, cx_new * target_cy);
+            for (int idx = 0; ret && idx < target_num; idx++)
+            {
+                CudaUtil::SetDevice(devices[idx]); //!!!
+
+                const uint8_t *src_data = ((const uint8_t*)target.tensor->data) + bytes * idx;
+                targets[idx]->tensor->New(device_data_type, cx_new, target_cy);
+                targets[idx]->tensor->CopyFromDevice(src_data, bytes);
+            }
+        }
+        else if (partition_type == TensorPartitionType::BY_ROW)
+        {
+            int target_cx = cx_new / target_num;
+            int src_row_bytes = (int)TensorCommon::ByteCount(device_data_type, cx_new);
+            int target_row_bytes = src_row_bytes / target_num;
+            for (int idx = 0; ret && idx < target_num; idx++)
+            {
+                CudaUtil::SetDevice(devices[idx]); //!!!
+
+                targets[idx]->tensor->New(device_data_type, target_cx, cy_new);
+                for (int row_idx = 0; row_idx < cy_new; row_idx++)
+                {
+                    const uint8_t *src_data = ((const uint8_t*)target.tensor->data)
+                        + src_row_bytes * row_idx + target_row_bytes * idx;
+                    void *target_data = targets[idx]->tensor->RowData(row_idx);
+                    CudaUtil::DeviceToDeviceMemcpy(target_data, src_data, target_row_bytes);
+                }
+            }
+        }
+        else
+        {
+            LogError("The quant version has not been impelemnted yet.");
+            return false;
+        }
     }
     else if (partition_type == TensorPartitionType::DUP)
     {

@@ -18,6 +18,7 @@ public:
     sslib::ServiceRequestHeader header;
     LlmQuery query;
     wstring decoding_alg;
+    uint32_t max_output_len = 1024; //maximal number of output tokens
     int random_seed = 0;
     float temperature = 1.0f;
     bool is_streaming_mode = true;

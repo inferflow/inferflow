@@ -77,6 +77,7 @@ public:
         SamplingStrategyId strategy_id = SamplingStrategyId::Auto;
         int random_seed = 0;
         float temperature = 1.0f;
+        int max_output_tokens = -1;
     };
 
     class QueryData

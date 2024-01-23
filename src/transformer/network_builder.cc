@@ -23,7 +23,11 @@ NetworkBuilder::~NetworkBuilder()
 void NetworkBuilder::Clear()
 {
     context_ = nullptr;
+    ClearDeviceMemory();
+}
 
+void NetworkBuilder::ClearDeviceMemory()
+{
 #if defined(USE_CUDA)
     device_tensor_builder_.Clear();
     is_device_tensor_builder_initialized_ = false;
