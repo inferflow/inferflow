@@ -80,7 +80,7 @@ bool GpuInferenceWorker::Init(int id, int worker_num, int group_id, int group_nu
     local_device_heap_.Init(mem_size);
     aux_memory_size_ += mem_size;
 
-    mem_size = 160 * 1024 * 1024; //160MB
+    mem_size = 320 * 1024 * 1024; //320MB
     if (model_spec.max_input_len > 1024) {
         mem_size *= ((model_spec.max_context_len + 1023) / 1024);
     }

@@ -1415,6 +1415,9 @@ bool InferenceEngine::LoadConfig(InferenceConfig &config, const string &config_p
         cfg_data.AddMacro("data_root_dir", data_root_dir);
     }
 
+    string global_model_dir;
+    cfg_data.GetItem("main", "global_model_dir", global_model_dir, false);
+
     //prompt templates
     ret = LoadPromptTemplates(config.prompt_templates, cfg_data, "prompt_templates");
     Macro_RetFalseIf(!ret);
@@ -1454,6 +1457,7 @@ bool InferenceEngine::LoadConfig(InferenceConfig &config, const string &config_p
     string str;
     LogKeyInfo("Loading model specifications...");
     ret = ret && cfg_data.GetItem(section, "models", str, true);
+    cfg_data.AddMacro("global_model_dir", global_model_dir);
 
     vector<string> model_id_list;
     String::Split(str, model_id_list, ",;");
@@ -1464,6 +1468,7 @@ bool InferenceEngine::LoadConfig(InferenceConfig &config, const string &config_p
         String::Trim(spec.sid);
 
         string model_section = "model." + spec.sid;
+        cfg_data.AddMacro("model_name", spec.sid);
         ret = LoadModelSpec(spec, cfg_data, model_section, element_type_map,
             multi_gpu_strategy_map, decoding_strategy_map, jparser);
         if (!ret)
