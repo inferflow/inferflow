@@ -184,6 +184,12 @@ bool GpuInferenceWorker::Init(int id, int worker_num, int group_id, int group_nu
     if (is_gpu_quant)
     {
         int max_tensor_size = model_ptr_->std_network.device_net.MaxTensorSize();
+        for (const auto *sub_net : model_ptr_->std_network.device_sub_nets)
+        {
+            int sub_max = sub_net->MaxTensorSize();
+            max_tensor_size = max(max_tensor_size, sub_max);
+        }
+
         dequant_tensor_ex_.tensor = &dequant_tensor_;
         dequant_tensor_.New(ElementType::F16, max_tensor_size);
         //LogKeyInfo("Worker %d: Building the dequant layer...", id_);
@@ -1925,17 +1931,15 @@ DeviceTensor* GpuInferenceWorker::MergeTensors(const vector<TensorWithDeviceId> 
     DeviceTensor *dequant_tensor = CreateLocalTensor(ElementType::F16,
         cx0, cy, 1, true, heap_idx);
 
-    DeviceTensorEx src_tensor_ex;
-    src_tensor_ex.tensor = quant_src_tensor;
-
     TaskMonitor tm;
     int offset = 0;
     if (is_sum)
     {
-        int bytes = cx0 * cy * sizeof(half);
         for (int idx = 0; idx < (int)tensor_list.size(); idx++)
         {
             const auto &tdi = tensor_list[idx];
+            int bytes = (int)TensorCommon::ByteCount(tdi.tensor->data_type, cx0 * cy);
+
             if (idx == 0)
             {
                 DeviceCopy(merged_tensor->data, target_device,
@@ -1950,7 +1954,7 @@ DeviceTensor* GpuInferenceWorker::MergeTensors(const vector<TensorWithDeviceId> 
                     tdi.tensor->data, tdi.device_id, bytes);
                 //CudaUtil::DeviceSynchronize();
                 if (is_quant_tensor_exchange_) {
-                    TensorOpr::Dequantize(*dequant_tensor, src_tensor_ex);
+                    TensorOpr::Dequantize(*dequant_tensor, *quant_src_tensor);
                 }
                 TensorOpr::Add(*merged_tensor, *merged_tensor, *dequant_tensor);
             }

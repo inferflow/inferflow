@@ -100,6 +100,8 @@ public:
 
     static bool ConvertGgmlToHost(HostTensor &host_tensor, const ggml_tensor *ggml_tensor);
 
+    void ClearDeviceMemory();
+
 protected:
     const InferenceConfig *config_ = nullptr;
     const InferenceConfigEx *config_ex_ = nullptr;

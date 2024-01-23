@@ -56,6 +56,7 @@ void InferFlowRequest::ToJson(std::wostream &writer) const
         JsonBuilder::AppendFieldValue(writer, decoding_alg);
     }
 
+    writer << L",\n\t\"max_output_len\":" << max_output_len;
     writer << L",\n\t\"random_seed\":" << random_seed;
     writer << L",\n\t\"temperature\":" << temperature;
     writer << L",\n\t\"is_streaming_mode\":" << (is_streaming_mode ? 1 : 0);
@@ -94,6 +95,9 @@ bool InferFlowRequest::FromJson(const JsonObject &jobj,
     jobj.GetFieldValue(query.encoder_input_template, L"encoder_input_template", jdoc);
     jobj.GetFieldValue(query.decoder_input_template, L"decoder_input_template", jdoc);
 
+    jobj.GetFieldValue(max_output_len, L"max_output_len", jdoc);
+    jobj.GetFieldValue(max_output_len, L"max_new_tokens", jdoc);
+
     jobj.GetFieldValue(decoding_alg, L"decoding_alg", jdoc);
     jobj.GetFieldValue(random_seed, L"random_seed", jdoc);
     jobj.GetFieldValue(temperature, L"temperature", jdoc);
@@ -103,6 +107,7 @@ bool InferFlowRequest::FromJson(const JsonObject &jobj,
     {
         is_streaming_mode = num != 0;
     }
+    jobj.GetFieldValue(is_streaming_mode, L"is_streaming_mode", jdoc);
 
     return ret;
 }
@@ -124,8 +129,14 @@ void InferFlowResponseChunk::ToJson(wstring &jstr) const
 {
     wstringstream ss;
     ss << L"{";
-    ss << L"\"ret_code\":";
-    JsonBuilder::AppendFieldValue(ss, ret_code);
+    ss << L"\"text\":";
+    JsonBuilder::AppendFieldValue(ss, text);
+
+    if (!ret_code.empty())
+    {
+        ss << L",\"ret_code\":";
+        JsonBuilder::AppendFieldValue(ss, ret_code);
+    }
 
     if (!error_text.empty())
     {
@@ -137,9 +148,6 @@ void InferFlowResponseChunk::ToJson(wstring &jstr) const
     if (is_end) {
         ss << L",\"is_end\":" << (is_end ? 1 : 0);
     }
-
-    ss << L",\"text\":";
-    JsonBuilder::AppendFieldValue(ss, text);
 
     ss << L"}";
     jstr = ss.str();

@@ -60,7 +60,7 @@ bool InferFlowServiceCore::Init(const string &config_path)
 void InferFlowServiceCore::Run()
 {
     bool ret = true;
-    int max_output_len = 500;
+    int max_output_len = 100 * 1024;
 
     //int default_device_id = engine_.default_device_id();
     //cudaSetDevice(default_device_id);
@@ -171,6 +171,7 @@ Socket::RetCode InferFlowServiceCore::HandleRequest_Inner(
         query_options.strategy_id = engine_.GetSamplingStrategyId(decoding_alg);
         query_options.random_seed = request.random_seed;
         query_options.temperature = request.temperature;
+        query_options.max_output_tokens = request.max_output_len;
 
         LogKeyInfo("decoding_alg: %s, strategy_id: %d, temperature: %.2f",
             decoding_alg.c_str(), query_options.strategy_id, query_options.temperature);
@@ -189,7 +190,7 @@ Socket::RetCode InferFlowServiceCore::HandleRequest_Inner(
         ss << StringUtil::Utf8ToWideStr(decoder_prefix.res_prefix);
         LogKeyInfo(L"Decoder input text: %ls", ss.str().c_str());
 
-        query_id = engine_.AddQuery(encoder_input, decoder_prefix, query_options, TokenizationAlg::FMM);
+        query_id = engine_.AddQuery(encoder_input, decoder_prefix, query_options);
         if (query_id <= 0)
         {
             chunk_ptr->ret_code = L"error.busy";
@@ -210,24 +211,29 @@ Socket::RetCode InferFlowServiceCore::HandleRequest_Inner(
         return ret_code;
     }
 
+    TaskMonitor tm;
+
     string new_text;
     bool is_end = false;
     while (ret && !is_end)
     {
-        Thread::SleepMilli(10);
+        Thread::SleepMilli(1);
 
         result_lock_.lock(); //lock
         auto iter = query_to_result_.find(query_id);
         if (iter != query_to_result_.end())
         {
             auto &res_item = iter->second;
-            new_text += res_item.text;
-            res_item.text.clear();
             is_end = is_end || res_item.is_end;
 
             if (is_end) {
                 query_to_result_.erase(iter);
             }
+            else {
+                new_text += res_item.text;
+            }
+
+            res_item.text.clear();
         }
         result_lock_.unlock(); //unlock
 
@@ -245,13 +251,16 @@ Socket::RetCode InferFlowServiceCore::HandleRequest_Inner(
 
         if (is_end || (chunk_ptr->text_utf8_len >= 16 && is_streaming))
         {
-            chunk_ptr->ret_code = L"succ";
+            chunk_ptr->ret_code = is_streaming ? L"" : L"succ";
+            chunk_ptr->time_cost = tm.GetElapsedTime(true) / 1000.0f;
+
             if (is_streaming)
             {
                 wstring response_str;
                 chunk_ptr->is_end = is_end;
                 chunk_ptr->ToJson(response_str);
                 chunk_ptr->Clear(); //!!!
+                tm.Start();
 
                 string utf8_str = StringUtil::ToUtf8(response_str);
 

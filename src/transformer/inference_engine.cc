@@ -169,17 +169,19 @@ bool InferenceEngine::Init(const InferenceConfig &cfg)
         ret = network_builder_.CheckDeviceModel(model_);
         Macro_RetxFalseIf(!ret, LogError("Something is wrong with the model"));
 
+        network_builder_.ClearDeviceMemory();
+
         LogKeyInfo("Creating workers...");
         CreateGpuWorkers(*model_spec, model_partition);
-
-        int device_count = CudaUtil::DeviceCount();
-        for (int device_id = 0; device_id < device_count; device_id++)
-        {
-            CudaUtil::LogDeviceMemoryInfo(device_id);
-        }
-
-        CudaUtil::SetDevice(default_device_id_);
     }
+
+    int device_count = CudaUtil::DeviceCount();
+    for (int device_id = 0; device_id < device_count; device_id++)
+    {
+        CudaUtil::LogDeviceMemoryInfo(device_id);
+    }
+
+    CudaUtil::SetDevice(default_device_id_);
 #endif //USE_CUDA
 
     int encoder_cpu_layer_count = is_cpu_only_ ? hparams.encoder_layers
@@ -386,7 +388,7 @@ int InferenceEngine::AddQuery(const vector<int> &encoder_input_tokens,
     if (query_count < max_query_count)
     {
         query_id = query_state_table_.Add(encoder_input_tokens, decoder_prefix_tokens,
-            model_spec, (int)strategy_id);
+            model_spec, (int)strategy_id, query_options.max_output_tokens);
 
         SamplingStrategy *strategy_ptr = GetSamplingStrategy(strategy_id);
         if (strategy_ptr != nullptr)
@@ -1074,7 +1076,10 @@ bool InferenceEngine::GetLocalInput(LocalInput &input, vector<int> &saturated_qu
         const auto &state_tokens = input.is_encoder ? state->encoder_input_tokens
             : state->decoder_tokens;
         int total_len = state->prefix_len + (int)state_tokens.size();
-        if (state->prefix_len >= model.spec.max_context_len)
+        int output_len = state->prefix_len - state->initial_prefix_len;
+        int max_output_len = state->max_output_tokens;
+        if (state->prefix_len >= model.spec.max_context_len
+            || (max_output_len >= 0 && output_len >= max_output_len))
         {
             saturated_queries.push_back(state->query_id);
         }
@@ -1536,10 +1541,21 @@ bool InferenceEngine::LoadModelSpec(ModelSpec &spec, const ConfigData &cfg_data,
 {
     string str;
     bool ret = cfg_data.GetItem(section, "model_dir", spec.dir, true);
-    ret = ret && cfg_data.GetItem(section, "model_specification_file", spec.spec_file, true);
+    Macro_RetFalseIf(!ret);
+    if (spec.dir.empty())
+    {
+        LogError("The directory of model \"%s\" should not be empty", spec.sid.c_str());
+        return false;
+    }
 
-    if (ret && spec.dir.empty()) {
-        LogError("Model directory should not be empty");
+    spec.spec_file.clear();
+    ret = cfg_data.GetItem(section, "model_specification_file", spec.spec_file, false);
+    if (!ret) {
+        ret = cfg_data.GetItem(section, "model_spec_file", spec.spec_file, false);
+    }
+    if (spec.spec_file.empty())
+    {
+        LogError("The specification file of model \"%s\" should not be empty", spec.sid.c_str());
         return false;
     }
 
@@ -1660,7 +1676,9 @@ bool InferenceEngine::LoadModelSpec(ModelSpec &spec, const ConfigData &cfg_data,
 
     if (ret)
     {
-        string spec_file_path = spec.dir + spec.spec_file;
+        bool is_abs = Path::IsAbsolute(spec.spec_file);
+        string spec_file_path = is_abs ? spec.spec_file : spec.dir + spec.spec_file;
+
         ret = ModelReader::LoadModelSpecJson(spec, spec_file_path, jparser);
     }
     return ret;
