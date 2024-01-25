@@ -101,7 +101,13 @@ bool InferenceEngine::Init(const InferenceConfig &cfg)
         return false;
     }
 
-    const auto &hparams = model_.spec.hyper_params;
+    is_cpu_only_ = true;
+    const auto& hparams = model_.spec.hyper_params;
+#if defined(USE_CUDA)
+    is_cpu_only_ = model_spec->decoder_cpu_layer_count >= hparams.decoder_layers
+        && model_spec->encoder_cpu_layer_count >= hparams.encoder_layers;
+#endif //USE_CUDA
+
     if (model_.spec.max_context_len <= 0 && hparams.training_context_len > 0) {
         model_.spec.max_context_len = hparams.training_context_len;
     }
@@ -129,12 +135,12 @@ bool InferenceEngine::Init(const InferenceConfig &cfg)
     {
         LogKeyInfo("Building the host network (type: %d)...",
             (int)model_spec->network_structure);
-        ret = network_builder_.BuildHostNetwork(model_, *model_spec);
+        ret = network_builder_.BuildHostNetwork(model_, *model_spec, is_cpu_only_);
         Macro_RetxFalseIf(!ret, LogError("Failed to build the host network"));
     }
 
     LogKeyInfo("Checking the on-host model...");
-    ret = network_builder_.CheckHostModel(model_);
+    ret = network_builder_.CheckHostModel(model_, is_cpu_only_);
     Macro_RetxFalseIf(!ret, LogError("Something is wrong with the model"));
 
     bool enable_printing = false;
@@ -149,10 +155,7 @@ bool InferenceEngine::Init(const InferenceConfig &cfg)
         }
     }
 
-    is_cpu_only_ = true;
 #if defined(USE_CUDA)
-    is_cpu_only_ = model_spec->decoder_cpu_layer_count >= hparams.decoder_layers
-        && model_spec->encoder_cpu_layer_count >= hparams.encoder_layers;
     if (!is_cpu_only_)
     {
         ModelPartition model_partition;

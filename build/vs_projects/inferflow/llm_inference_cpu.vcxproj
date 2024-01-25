@@ -27,9 +27,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\src\examples\cpu_llm_inference.cc" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\3rd_party\ggml.vcxproj">
       <Project>{517cb48a-b586-44d0-a098-601588481b96}</Project>
     </ProjectReference>
@@ -39,6 +36,9 @@
     <ProjectReference Include="inferflow_common_cpu.vcxproj">
       <Project>{a28033cd-2315-42ae-82d9-7a263a2279da}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\src\tools\llm_inference.cc" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -151,7 +151,6 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>..\..\..\3rd_party;..\..\..\src</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalOptions>/arch:AVX /arch:AVX2 /arch:AVX512 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -170,7 +169,6 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>..\..\..\3rd_party;..\..\..\src</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalOptions>/arch:AVX /arch:AVX2 /arch:AVX512 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -193,7 +191,6 @@
       <AdditionalIncludeDirectories>..\..\..\3rd_party;..\..\..\src</AdditionalIncludeDirectories>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalOptions>/arch:AVX /arch:AVX2 /arch:AVX512 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -220,7 +217,6 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalOptions>/arch:AVX /arch:AVX2 /arch:AVX512 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -246,7 +242,6 @@
       <AdditionalIncludeDirectories>..\..\..\3rd_party;..\..\..\src</AdditionalIncludeDirectories>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalOptions>/arch:AVX /arch:AVX2 /arch:AVX512 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -274,7 +269,6 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalOptions>/arch:AVX /arch:AVX2 /arch:AVX512 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
