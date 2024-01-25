@@ -47,15 +47,15 @@ public:
 
     bool InitNetworkStructure(StdNetwork &net, const ModelSpec &spec) const;
 
-    bool BuildHostNetwork(TransformerModel &model, const ModelSpec &spec);
-    bool BuildHostNetwork_Std(TransformerModel &model, const ModelSpec &spec);
+    bool BuildHostNetwork(TransformerModel &model, const ModelSpec &spec, bool is_cpu_only);
+    bool BuildHostNetwork_Std(TransformerModel &model, const ModelSpec &spec, bool is_cpu_only);
 
     bool BuildGgmlNetwork(TransformerModel &model, const ModelSpec &spec, ggml_context *&ctx,
         int encoder_layer_count, int decoder_layer_count);
 
     static void BuildHostTensorMap(StdHostNetwork &net);
 
-    bool CheckHostModel(const TransformerModel &model) const;
+    bool CheckHostModel(const TransformerModel &model, bool is_cpu_only) const;
 #if defined(USE_CUDA)
     bool CheckDeviceModel(const TransformerModel &model) const;
     bool CheckDeviceModel(const StdDeviceNetwork &net, const ModelSpec &model_spec,
