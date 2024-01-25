@@ -140,7 +140,7 @@
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NULL_GGML_RESTRICT;_CRT_SECURE_NO_WARNINGS;_LIB;_DEBUG</PreprocessorDefinitions>
+      <PreprocessorDefinitions>__AVX__;__AVX2__;__AVX512F__;__SSE__;__SSE2__;__SSE3__;NULL_GGML_RESTRICT;_CRT_SECURE_NO_WARNINGS;_LIB;_DEBUG</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
@@ -155,7 +155,7 @@
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NULL_GGML_RESTRICT;_CRT_SECURE_NO_WARNINGS;_LIB;WIN32;_DEBUG</PreprocessorDefinitions>
+      <PreprocessorDefinitions>__AVX__;__AVX2__;__AVX512F__;__SSE__;__SSE2__;__SSE3__;NULL_GGML_RESTRICT;_CRT_SECURE_NO_WARNINGS;_LIB;WIN32;_DEBUG</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
@@ -172,7 +172,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NULL_GGML_RESTRICT;_CRT_SECURE_NO_WARNINGS;_LIB;WIN32;NDEBUG</PreprocessorDefinitions>
+      <PreprocessorDefinitions>__AVX__;__AVX2__;__AVX512F__;__SSE__;__SSE2__;__SSE3__;NULL_GGML_RESTRICT;_CRT_SECURE_NO_WARNINGS;_LIB;WIN32;NDEBUG</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
@@ -191,7 +191,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NULL_GGML_RESTRICT;_CRT_SECURE_NO_WARNINGS;_LIB;WIN32;NDEBUG</PreprocessorDefinitions>
+      <PreprocessorDefinitions>__AVX__;__AVX2__;__AVX512F__;__SSE__;__SSE2__;__SSE3__;NULL_GGML_RESTRICT;_CRT_SECURE_NO_WARNINGS;_LIB;WIN32;NDEBUG</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -212,7 +212,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NULL_GGML_RESTRICT;_CRT_SECURE_NO_WARNINGS;_LIB;NDEBUG</PreprocessorDefinitions>
+      <PreprocessorDefinitions>__AVX__;__AVX2__;__AVX512F__;__SSE__;__SSE2__;__SSE3__;NULL_GGML_RESTRICT;_CRT_SECURE_NO_WARNINGS;_LIB;NDEBUG</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
@@ -231,7 +231,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NULL_GGML_RESTRICT;_CRT_SECURE_NO_WARNINGS;_LIB;NDEBUG</PreprocessorDefinitions>
+      <PreprocessorDefinitions>__AVX__;__AVX2__;__AVX512F__;__SSE__;__SSE2__;__SSE3__;NULL_GGML_RESTRICT;_CRT_SECURE_NO_WARNINGS;_LIB;NDEBUG</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>

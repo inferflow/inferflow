@@ -7,7 +7,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\src\examples\cpu_llm_inference.cc">
+    <ClCompile Include="..\..\..\src\tools\llm_inference.cc">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
