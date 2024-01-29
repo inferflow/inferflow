@@ -168,7 +168,8 @@ protected:
     DeviceTensor* ProcessPreLayer(const DeviceTensor *layer_input, int heap_idx);
     DeviceTensor* ProcessPostLayer(DeviceTensor *layer_input, int heap_idx);
 
-    DeviceTensor* ProcessOutputTransLayer(DeviceTensor *layer_input, int heap_idx);
+    DeviceTensor* ProcessTransLayer(const StdDeviceNetwork::SimpleLayer &trans_layer,
+        DeviceTensor *layer_input, int heap_idx);
 
     DeviceTensor* ProcessGpuLayer(int layer_idx, const DeviceTensor *layer_input,
         const InputKV &input_kv, int heap_idx);

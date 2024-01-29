@@ -1302,18 +1302,30 @@ bool InferenceEngine::GetEmbdTensor(DeviceTensor &embd_tensor,
     int token_num = (int)input.tokens.size();
     const auto &net = model_.std_network;
 
-    embd_tensor.data_type = ElementType::F16;
-    embd_tensor.data = local_device_heap_.NewHalfArray(token_num * hparams.embd_dims);
-    embd_tensor.SetStructure(hparams.embd_dims, token_num);
+    int embd_dims = hparams.embd_dims;
+    const auto *src_embd_tensor = is_encoder ? model_.encoder_embeddings : model_.decoder_embeddings;
+    if (src_embd_tensor != nullptr) {
+        embd_dims = src_embd_tensor->ne[0];
+    }
 
-    vector<half> half_array;
+    embd_tensor.data_type = ElementType::F16;
+    embd_tensor.data = local_device_heap_.NewHalfArray(token_num * embd_dims);
+    embd_tensor.SetStructure(embd_dims, token_num);
+
+    //if (model_.decoder_embeddings != nullptr && config_.debug.is_study_mode
+    //    && config_.debug.show_tensors)
+    //{
+    //    model_.decoder_embeddings->Print(cout, 8, 8, 8, "decoder embeddings:\n") << endl;
+    //}
+
+    vector<inferflow_fp16> half_array;
     //LogKeyInfo("Building the embedding tensor for %d token(s)...", token_num);
     for (int idx = 0; idx < token_num; idx++)
     {
         int token_id = input.tokens[idx];
         //LogKeyInfo("token_id: %d", token_id);
         void *target_row = embd_tensor.RowData(idx);
-        int byte_num = sizeof(half) * hparams.embd_dims;
+        int byte_num = sizeof(half) * embd_dims;
         const auto *gpu_embeddings = is_encoder ? net.device_net.encoder_embeddings
             : net.device_net.decoder_embeddings;
         if (gpu_embeddings != nullptr)
@@ -1328,10 +1340,9 @@ bool InferenceEngine::GetEmbdTensor(DeviceTensor &embd_tensor,
         {
             const HostHalfBuffer &cpu_embeddings = is_encoder ? net.host_net.encoder_embeddings
                 : net.host_net.decoder_embeddings;
-            const half *src_row = cpu_embeddings.data() + token_id * hparams.embd_dims;
+            const inferflow_fp16 *src_row = cpu_embeddings.data() + token_id * embd_dims;
             ret = CudaUtil::HostToDeviceMemcpy(target_row, src_row, byte_num);
-            //DeviceTensorUtil::GetFP16List(half_array, *src_row);
-            //LogKeyInfo("first embed weight: %.5f", (float)cpu_embeddings.data()[0]);
+            //LogKeyInfo("first embed weight: %.5f", (float)src_row[0]);
         }
 
         Macro_RetFalseIf(!ret);
