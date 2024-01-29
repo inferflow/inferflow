@@ -335,6 +335,7 @@ bool NetworkBuilder::BuildHostNetwork_Std(TransformerModel &model, const ModelSp
 
     host_net.encoder_pos_embeddings = model.FindHostTensor("enc.pos_embeddings.weight");
     host_net.encoder_token_type_embeddings = model.FindHostTensor("enc.token_type_embeddings.weight");
+    host_net.decoder_pos_embeddings = model.FindHostTensor("dec.pos_embeddings.weight");
 
     host_net.encoder_input_norm = model.FindHostTensor("enc.input_norm.weight");
     host_net.encoder_input_norm_b = model.FindHostTensor("enc.input_norm.bias");
@@ -363,6 +364,13 @@ bool NetworkBuilder::BuildHostNetwork_Std(TransformerModel &model, const ModelSp
     {
         TensorUtil::NormalizeByRow(*output_tensor);
     }
+
+    host_net.input_transform.dense.weight = model.FindHostTensor("input_transform.weight");
+    host_net.input_transform.dense.bias = model.FindHostTensor("input_transform.bias");
+    host_net.input_transform.pre_norm.weight = model.FindHostTensor("input_transform.pre_norm.weight");
+    host_net.input_transform.pre_norm.bias = model.FindHostTensor("input_transform.pre_norm.bias");
+    host_net.input_transform.post_norm.weight = model.FindHostTensor("input_transform.post_norm.weight");
+    host_net.input_transform.post_norm.bias = model.FindHostTensor("input_transform.post_norm.bias");
 
     host_net.output_transform.dense.weight = model.FindHostTensor("output_transform.weight");
     host_net.output_transform.dense.bias = model.FindHostTensor("output_transform.bias");
@@ -420,6 +428,7 @@ bool NetworkBuilder::BuildGgmlNetwork(TransformerModel &model, const ModelSpec &
 
     ggml_net.encoder_pos_embeddings = ConvertHostToGgml(host_net.encoder_pos_embeddings, ctx);
     ggml_net.encoder_token_type_embeddings = ConvertHostToGgml(host_net.encoder_token_type_embeddings, ctx);
+    ggml_net.decoder_pos_embeddings = ConvertHostToGgml(host_net.decoder_pos_embeddings, ctx);
 
     ggml_net.encoder_input_norm = ConvertHostToGgml(host_net.encoder_input_norm, ctx);
     ggml_net.encoder_input_norm_b = ConvertHostToGgml(host_net.encoder_input_norm_b, ctx);
@@ -437,8 +446,9 @@ bool NetworkBuilder::BuildGgmlNetwork(TransformerModel &model, const ModelSpec &
     ggml_net.decoder_output_norm_b = ConvertHostToGgml(host_net.decoder_output_norm_b, ctx);
     ggml_net.output = ConvertHostToGgml(host_net.output, ctx);
 
-    // output_transform
+    // input_transform & output_transform
     // ggml_net.output_transform = new StdGgmlNetwork::SimpleLayer;
+    BuildGgmlNetwork_SimpleLayer(ggml_net.input_transform, host_net.input_transform, ctx);
     BuildGgmlNetwork_SimpleLayer(ggml_net.output_transform, host_net.output_transform, ctx);
 
     // enocder layers
@@ -582,6 +592,12 @@ bool NetworkBuilder::BuildDeviceNetwork_Embd(StdDeviceNetwork &device_net,
     {
         device_net.encoder_token_type_embeddings = BuildDeviceTensor_ForceDequant(
             *host_net.encoder_token_type_embeddings, aux_buffer, model.spec);
+    }
+
+    if (host_net.decoder_pos_embeddings != nullptr)
+    {
+        device_net.decoder_pos_embeddings = BuildDeviceTensor_ForceDequant(
+            *host_net.decoder_pos_embeddings, aux_buffer, model.spec);
     }
 
     return true;
@@ -919,6 +935,8 @@ bool NetworkBuilder::BuildDeviceNetwork_ByLayer(StdDeviceNetwork &device_net,
     TaskMonitor tm;
     BuildDeviceNetwork_Embd(device_net, model, host_net, aux_buffer);
 
+    BuildDeviceNetwork_SimpleLayer(device_net.input_transform, model,
+        host_net.input_transform, aux_buffer);
     BuildDeviceNetwork_SimpleLayer(device_net.output_transform, model,
         host_net.output_transform, aux_buffer);
 
@@ -1121,8 +1139,12 @@ bool NetworkBuilder::BuildDeviceNetwork_ByTensor(
     bool be_trans = config_ex.is_gpu_tensor_row_major && !model.is_cpu_tensor_row_major;
 
     TaskMonitor tm;
-    if (la.start_layer == 0) {
+    if (la.start_layer == 0)
+    {
         BuildDeviceNetwork_Embd(model.std_network.device_net, model, host_net, aux_buffer);
+
+        BuildDeviceNetwork_SimpleLayer(model.std_network.device_net.input_transform,
+            model, host_net.input_transform, aux_buffer);
     }
 
     CudaUtil::SetDevice(*la.devices->rbegin());
@@ -1601,8 +1623,9 @@ bool NetworkBuilder::CheckHostModel(const TransformerModel &model, bool is_cpu_o
 
     if (!is_encoder_only)
     {
-        Macro_RetxFalseIf(host_net.decoder_output_norm == nullptr,
-            LogError("Null decoder output_norm"));
+        if (host_net.decoder_output_norm == nullptr) {
+            LogWarning("Null decoder output_norm");
+        }
     }
 
     is_encoder = false;
@@ -1690,8 +1713,9 @@ bool NetworkBuilder::CheckDeviceModel(const StdDeviceNetwork &net,
 
     if (!is_encoder_only && sub_net_idx < 0)
     {
-        Macro_RetxFalseIf(net.decoder_output_norm == nullptr,
-            LogError("Null decoder output_norm"));
+        if (net.decoder_output_norm == nullptr) {
+            LogWarning("Null decoder output_norm");
+        }
     }
 
     is_encoder = false;

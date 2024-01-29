@@ -371,8 +371,13 @@ bool ModelReader::LoadModelSpecJson(ModelSpec &model_spec, const string &file_pa
         model_spec.pos_embedding_alg = iter->second;
     }
 
+    net_struc_obj.GetFieldValue(model_spec.has_linear_norm_before_sinusoidal,
+        L"linear_norm_before_sinusoidal", jdoc);
+
     net_struc_obj.GetFieldValue(model_spec.rope_theta, L"rope_theta", jdoc);
     net_struc_obj.GetFieldValue(model_spec.partial_rotary_factor, L"partial_rotary_factor", jdoc);
+
+    net_struc_obj.GetFieldValue(model_spec.pos_embedding_offset, L"pos_embedding_offset", jdoc);
 
     net_struc_obj.GetFieldValue(model_spec.qk_column_order, L"qk_column_order", jdoc);
     net_struc_obj.GetFieldValue(model_spec.qkv_format, L"qkv_format", jdoc);
@@ -382,6 +387,9 @@ bool ModelReader::LoadModelSpecJson(ModelSpec &model_spec, const string &file_pa
     net_struc_obj.GetFieldValue(model_spec.mlp_attn_share_input, L"mlp_attn_share_input", jdoc);
 
     net_struc_obj.GetFieldValue(model_spec.use_self_attn_pre_norm, L"use_self_attn_pre_norm", jdoc);
+
+    net_struc_obj.GetFieldValue(hparams.experts, L"expert_count", jdoc);
+    net_struc_obj.GetFieldValue(hparams.moe_top_k, L"moe_top_k", jdoc);
 
     if (model_spec.model_file_format == ModelFileFormat::GGUF
         && model_spec.tensor_name_prefix.empty())
@@ -465,6 +473,9 @@ bool ModelReader::LoadConfigJson(TransformerModel &model, TokenizerConfig &tok_c
         ret = jobj.GetFieldValue(hparams.embd_dims, L"d_model", jdoc);
         if (!ret) {
             ret = jobj.GetFieldValue(hparams.embd_dims, L"n_embed", jdoc);
+        }
+        if (!ret) {
+            ret = jobj.GetFieldValue(hparams.embd_dims, L"n_embd", jdoc);
         }
         if (!ret) {
             ret = jobj.GetFieldValue(hparams.embd_dims, L"hidden_size", jdoc);

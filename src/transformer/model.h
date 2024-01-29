@@ -57,6 +57,10 @@ struct ModelHyperParams
     int decoder_kv_heads = 0;
 
     int training_context_len = -1;
+
+    //for moe (Mixture-of-Experts)
+    int experts = 0;
+    int moe_top_k = 0;
 };
 
 struct ModelSpec
@@ -79,8 +83,10 @@ struct ModelSpec
     TensorNormAlg norm_alg = TensorNormAlg::STD;
     ActivationFn activation_fn = ActivationFn::SILU;
     PositionEmbeddingAlg pos_embedding_alg = PositionEmbeddingAlg::ROPE;
+    bool has_linear_norm_before_sinusoidal = true;
     float rope_theta = 10000.0f;
     float partial_rotary_factor = 1.0f;
+    int pos_embedding_offset = 0;
     map<string, string> tensor_name_map;
     map<string, string> tensor_name_pre_map;
 
@@ -206,6 +212,7 @@ public:
 
     DeviceTensor *encoder_pos_embeddings = nullptr;
     DeviceTensor *encoder_token_type_embeddings = nullptr;
+    DeviceTensor *decoder_pos_embeddings = nullptr;
 
     DeviceTensor *encoder_input_norm = nullptr;
     DeviceTensor *encoder_input_norm_b = nullptr;
@@ -225,7 +232,7 @@ public:
     DeviceTensor *output_quant = nullptr; //quantized version of lm_head
     DeviceTensor *output_b = nullptr;
 
-    SimpleLayer output_transform;
+    SimpleLayer input_transform, output_transform;
 
     PtrVector<EncoderLayer> encoder_layers;
     PtrVector<DecoderLayer> decoder_layers;
@@ -320,6 +327,7 @@ public:
 
     ggml_tensor *encoder_pos_embeddings = nullptr;
     ggml_tensor *encoder_token_type_embeddings = nullptr;
+    ggml_tensor *decoder_pos_embeddings = nullptr;
 
     ggml_tensor *encoder_input_norm = nullptr;     //encoder embeddings layernorm: weight
     ggml_tensor *encoder_input_norm_b = nullptr;   //encoder embeddings layernorm: bias
@@ -337,7 +345,7 @@ public:
     ggml_tensor *decoder_output_norm_b = nullptr;
     ggml_tensor *output = nullptr;
 
-    SimpleLayer output_transform;
+    SimpleLayer input_transform, output_transform;
 
     PtrVector<EncoderLayer> encoder_layers;
     PtrVector<DecoderLayer> decoder_layers;
@@ -420,6 +428,7 @@ public:
 
     const HostTensor *encoder_pos_embeddings = nullptr;
     const HostTensor *encoder_token_type_embeddings = nullptr;
+    const HostTensor *decoder_pos_embeddings = nullptr;
 
     const HostTensor *encoder_input_norm = nullptr;     //encoder embeddings layernorm: weight
     const HostTensor *encoder_input_norm_b = nullptr;   //encoder embeddings layernorm: bias
@@ -438,7 +447,7 @@ public:
     const HostTensor *output = nullptr;
     const HostTensor *output_b = nullptr;
 
-    SimpleLayer output_transform;
+    SimpleLayer input_transform, output_transform;
 
     PtrVector<EncoderLayer> encoder_layers;
     PtrVector<DecoderLayer> decoder_layers;

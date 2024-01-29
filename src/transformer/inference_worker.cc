@@ -231,6 +231,7 @@ void GpuInferenceWorker::Run()
     const auto &model_spec = model_ptr_->spec;
     auto net_type = model_spec.network_structure;
     bool is_encoder_decoder = NetworkStructure::IsEncoderDecoderTransformer(net_type);
+    const StdDeviceNetwork *device_net = GetDeviceNet();
 
     output_tensor_ = nullptr;
     CudaUtil::SetDevice(device_id_);
@@ -262,11 +263,15 @@ void GpuInferenceWorker::Run()
         cx, cy, cz, false, heap_idx);
     layer_input->CopyFromDevice((const void*)input_tensor_->data, input_byte_count);
 
+    if (config_->debug.is_study_mode && config_->debug.show_tensors) {
+        PrintTensor(layer_input, 8, 8, 8, "input token embeddings:\n");
+    }
+
     InputKV input_kv;
     if (is_encoder_decoder && !is_encoder_)
     {
         BuildInputKV(input_kv, data_type);
-        if (config_->debug.is_study_mode) {
+        if (config_->debug.is_study_mode && config_->debug.show_tensors) {
             PrintTensor(input_kv.tensor, 8, 8, 8, "input_kv:\n");
         }
     }
@@ -275,8 +280,14 @@ void GpuInferenceWorker::Run()
     int global_end_layer = is_encoder_ ? global_encoder_end_layer_ : global_decoder_end_layer_;
     if (layer_range.start == 0)
     {
-        DeviceTensor *out = ProcessPreLayer(layer_input, heap_idx);
-        if (out != nullptr) { 
+        heap_idx = (heap_idx + 1) % LOCAL_DEVICE_HEAP_NUM;
+        local_device_heaps_[heap_idx].Clear();
+
+        DeviceTensor *out = ProcessTransLayer(device_net->input_transform, layer_input, heap_idx);
+        layer_input = out;
+
+        out = ProcessPreLayer(layer_input, heap_idx);
+        if (out != nullptr) {
             layer_input = out;
         }
     }
@@ -312,7 +323,7 @@ void GpuInferenceWorker::Run()
         heap_idx = (heap_idx + 1) % LOCAL_DEVICE_HEAP_NUM;
         local_device_heaps_[heap_idx].Clear();
 
-        DeviceTensor *out = ProcessOutputTransLayer(layer_input, heap_idx);
+        DeviceTensor *out = ProcessTransLayer(device_net->output_transform, layer_input, heap_idx);
         layer_input = out;
 
         out = ProcessPostLayer(layer_input, heap_idx);
@@ -373,34 +384,43 @@ void GpuInferenceWorker::BuildInputKV(InputKV &input_kv, ElementType data_type)
 bool GpuInferenceWorker::GetEmbeddingTensor(DeviceTensor &embd_tensor,
     bool is_encoder, bool is_pos)
 {
-    (void)is_encoder;
     bool ret = true;
-    const auto &hparams = model_ptr_->spec.hyper_params;
+    //const auto &hparams = model_ptr_->spec.hyper_params;
     int token_num = (int)token_id_list_.size();
     const auto &net = model_ptr_->std_network;
 
-    embd_tensor.data_type = ElementType::F16;
-    embd_tensor.data = local_device_heap_.NewHalfArray(token_num * hparams.embd_dims);
-    embd_tensor.SetStructure(hparams.embd_dims, token_num);
+    DeviceTensor *src_tensor = nullptr;
+    if (is_encoder)
+    {
+        src_tensor = is_pos ? net.device_net.encoder_pos_embeddings
+            : net.device_net.encoder_token_type_embeddings;
+    }
+    else
+    {
+        src_tensor = is_pos ? net.device_net.decoder_pos_embeddings : nullptr;
+    }
 
+    if (src_tensor == nullptr) {
+        return false;
+    }
+
+    embd_tensor.data_type = ElementType::F16;
+    embd_tensor.data = local_device_heap_.NewHalfArray(token_num * src_tensor->ne[0]);
+    embd_tensor.SetStructure(src_tensor->ne[0], token_num);
+
+    int offset = model_ptr_->spec.pos_embedding_offset;
     int query_num = (int)query_list_.size();
     for (int query_idx = 0; ret && query_idx < query_num; query_idx++)
     {
         const auto &query = query_list_[query_idx];
-        int byte_num = sizeof(half) * hparams.embd_dims;
+        //LogKeyInfo("query.prefix_len: %d", query.prefix_len);
+        int byte_num = sizeof(half) * src_tensor->ne[0];
         for (int token_idx = 0; ret && token_idx < query.token_num; token_idx++)
         {
             void *target_row = embd_tensor.RowData(query.start_row + token_idx);
-            if (is_pos)
-            {
-                const void *src_row = net.device_net.encoder_pos_embeddings->RowData(token_idx);
-                ret = CudaUtil::DeviceToDeviceMemcpy(target_row, src_row, byte_num);
-            }
-            else
-            {
-                const void *src_row = net.device_net.encoder_token_type_embeddings->RowData(0);
-                ret = CudaUtil::DeviceToDeviceMemcpy(target_row, src_row, byte_num);
-            }
+            int src_row_idx = is_pos ? token_idx + query.prefix_len + offset : 0;
+            const void *src_row = src_tensor->RowData(src_row_idx);
+            ret = CudaUtil::DeviceToDeviceMemcpy(target_row, src_row, byte_num);
         }
     }
 
@@ -422,8 +442,16 @@ DeviceTensor* GpuInferenceWorker::ProcessPreLayer(const DeviceTensor *layer_inpu
         || model_spec.pos_embedding_alg == PositionEmbeddingAlg::SINUSOIDAL2)
     {
         DeviceTensor *layer_norm = CreateLocalTensor(*layer_input, false, heap_idx);
-        TensorNormAlg norm_alg = TensorNormAlg::LINEAR;
-        TensorOpr::LayerNormalization(*layer_norm, *layer_input, norm_alg);
+        if (model_spec.has_linear_norm_before_sinusoidal)
+        {
+            TensorNormAlg norm_alg = TensorNormAlg::LINEAR;
+            TensorOpr::LayerNormalization(*layer_norm, *layer_input, norm_alg);
+        }
+        else
+        {
+            int bytes = (int)layer_input->ByteCount();
+            CudaUtil::DeviceToDeviceMemcpy(layer_norm->data, layer_input->data, bytes);
+        }
 
         if (config_->debug.is_study_mode) {
             PrintTensor(layer_norm, 8, 8, 8, "layer_norm (100):\n");
@@ -453,52 +481,56 @@ DeviceTensor* GpuInferenceWorker::ProcessPreLayer(const DeviceTensor *layer_inpu
     }
 
     const StdDeviceNetwork *device_net = GetDeviceNet();
+    DeviceTensor *new_input = nullptr;
+    DeviceTensor *out_tensor = CreateLocalTensor(*layer_input, false, heap_idx);
+    if (!is_encoder_ && device_net->decoder_pos_embeddings != nullptr)
+    {
+        DeviceTensor embd_tensor(false);
+        GetEmbeddingTensor(embd_tensor, false, true);
+        if (config_->debug.is_study_mode) {
+            PrintTensor(&embd_tensor, 8, 8, 8, "embed_positions:\n");
+        }
+
+        TensorOpr::Add(*out_tensor, *layer_input, embd_tensor);
+        new_input = out_tensor;
+    }
+
     const auto *input_norm = is_encoder_ ? device_net->encoder_input_norm
         : device_net->decoder_input_norm;
     const auto *input_norm_b = is_encoder_ ? device_net->encoder_input_norm_b
         : device_net->decoder_input_norm_b;
     bool is_null_input_norm = input_norm == nullptr;
     if (is_null_input_norm) {
-        return nullptr;
+        return new_input;
     }
 
-    const DeviceTensor *new_input = layer_input;
-    DeviceTensor *out_tensor = CreateLocalTensor(*layer_input, false, heap_idx);
-    if (device_net->encoder_token_type_embeddings != nullptr
+    const DeviceTensor *norm_input = new_input == nullptr ? layer_input : new_input;
+    if (is_encoder_ && device_net->encoder_token_type_embeddings != nullptr
         && device_net->encoder_pos_embeddings != nullptr)
     {
         DeviceTensor embd_tensor(false);
         GetEmbeddingTensor(embd_tensor, true, false);
         TensorOpr::Add(*out_tensor, *layer_input, embd_tensor);
 
-        //PrintTensor(out_tensor, 8, 8, 8, "new_input-1:\n");
+        PrintTensor(out_tensor, 8, 8, 8, "new_input-1:\n");
 
         GetEmbeddingTensor(embd_tensor, true, true);
         TensorOpr::Add(*out_tensor, *out_tensor, embd_tensor);
         new_input = out_tensor;
+        norm_input = new_input;
 
         //PrintTensor(&embd_tensor, 8, 8, 8, "pos-embeddings:\n");
         PrintTensor(new_input, 8, 8, 8, "new_input-2:\n");
     }
 
-    TensorOpr::LayerNormalization(*out_tensor, *new_input, model_spec.norm_alg,
+    TensorOpr::LayerNormalization(*out_tensor, *norm_input, model_spec.norm_alg,
         input_norm, input_norm_b);
+    new_input = out_tensor;
 
-    //PrintTensor(out_tensor, 8, 8, 8, "norm (101):\n");
-    /*if (ret && device_net->input_norm != nullptr)
-    {
-        ret = TensorOpr::Mul(*out_tensor, *out_tensor, *input_norm);
-        //PrintTensor(out_tensor, 8, 8, 8, "norm (102):\n");
+    if (new_input != nullptr && config_->debug.is_study_mode) {
+        PrintTensor(new_input, 8, 8, 8, "pre_layer_output:\n");
     }
-
-    if (ret && device_net->input_norm_b != nullptr)
-    {
-        ret = TensorOpr::Add(*out_tensor, *out_tensor, *input_norm_b);
-        //PrintTensor(device_net->norm_b, 8, 8, 8, "net.input_norm_b:\n");
-    }*/
-
-    //PrintTensor(out_tensor, 8, 8, 8, "norm (103):\n");
-    return ret ? out_tensor : nullptr;
+    return ret ? new_input : nullptr;
 }
 
 DeviceTensor* GpuInferenceWorker::ProcessPostLayer(DeviceTensor *layer_input,
@@ -624,19 +656,20 @@ DeviceTensor* GpuInferenceWorker::ProcessPostLayer(DeviceTensor *layer_input,
     return out;
 }
 
-DeviceTensor* GpuInferenceWorker::ProcessOutputTransLayer(
+DeviceTensor* GpuInferenceWorker::ProcessTransLayer(
+    const StdDeviceNetwork::SimpleLayer &trans_layer,
     DeviceTensor *layer_input, int heap_idx)
 {
     bool ret = true;
     int cy = input_tensor_->ne[1], cz = input_tensor_->ne[2];
     const auto &model_spec = model_ptr_->spec;
     //const auto &hparams = model_spec.hyper_params;
-    const StdDeviceNetwork *device_net = GetDeviceNet();
+    //const StdDeviceNetwork *device_net = GetDeviceNet();
     bool is_b_column_major = !config_ex_->is_gpu_tensor_row_major;
 
-    const auto &pre_norm = device_net->output_transform.pre_norm;
-    const auto &dense = device_net->output_transform.dense;
-    const auto &post_norm = device_net->output_transform.post_norm;
+    const auto &pre_norm = trans_layer.pre_norm;
+    const auto &dense = trans_layer.dense;
+    const auto &post_norm = trans_layer.post_norm;
 
     ClearLayerLocalMemory();
 
@@ -648,7 +681,7 @@ DeviceTensor* GpuInferenceWorker::ProcessOutputTransLayer(
             model_spec.norm_alg, pre_norm.weight, pre_norm.bias);
 
         if (config_->debug.is_study_mode) {
-            PrintTensor(layer_output, 8, 8, 8, "norm (1000801):\n");
+            PrintTensor(layer_output, 8, 8, 8, "trans_layer.norm_out:\n");
         }
     }
 
@@ -665,7 +698,7 @@ DeviceTensor* GpuInferenceWorker::ProcessOutputTransLayer(
         layer_output = dense_out;
         if (config_->debug.is_study_mode)
         {
-            PrintTensor(dense_out, 8, 16, 8, "dense_out (1000807):\n");
+            PrintTensor(dense_out, 8, 16, 8, "trans_layer.dense_out:\n");
         }
     }
 
@@ -681,8 +714,8 @@ DeviceTensor* GpuInferenceWorker::ProcessOutputTransLayer(
 
         if (config_->debug.is_study_mode)
         {
-            PrintTensor(act, 8, 16, 8, "act (1000809):\n");
-            PrintTensor(layer_output, 8, 16, 8, "output (1000810):\n");
+            PrintTensor(act, 8, 16, 8, "trans_layer.act:\n");
+            PrintTensor(layer_output, 8, 16, 8, "trans_layer.output:\n");
         }
     }
 
