@@ -1,14 +1,14 @@
 ## Serving 34B or 40B models on a single 24GB-VRAM GPU
 This document contains information about serving a 34B or 40B model with Inferflow on a single 24GB-VRAM GPU (e.g., RTX 3090 or 4090).
 
-The contents in this document are suitable for the readers who have successfully built executables from the Inferflow source codes and have run a few examples.
-Please refer to [**getting started**](../../#getting-started) for instructions about how to build and run the Inferflow service and tools.
+The contents in this document are suitable for readers who have successfully built executables from the Inferflow source codes and have run a few examples.
+Please refer to [**getting started**](../#getting-started) for instructions about how to build and run the Inferflow service and tools.
 
 ### General Steps
 
 In running the Inferflow service, a configuration file (in ini format) can be specified.
 The serving configuration of a few 34B/40B models has been included in ```bin/inferflow_service.34b40b_on_24gb_vram.ini```.
-The models are configured to take less than 24GB of video memory in inference time.
+The models are configured to take less than 24GB of video memory at inference time.
 
 General steps of serving a model:
 
@@ -19,6 +19,7 @@ Please refer to [model_serving_config.md](model_serving_config.md) for instructi
   ```
     #> inferflow_service inferflow_service.34b40b_on_24gb_vram.ini
   ```
+On Windows, the above executable name should be "inferflow_service.exe" rather than "inferflow_service".
 
 General steps of inference testing with the llm_inference tool:
 
@@ -32,7 +33,7 @@ General steps of inference testing with the llm_inference tool:
 
 ### Example-1: Serving Falcon-40B-Instruct
 
-To serve the Falcon-40B-Instruct model, the following changes should be made for ```inferflow_service.34b40b_on_24gb_vram.ini```:
+To serve the Falcon-40B-Instruct model, the following changes should be made to ```inferflow_service.34b40b_on_24gb_vram.ini```:
 1. In section "transformer_engine", set the value of "models" to "falcon_40b_instruct".
 2. In section "model.falcon_40b_instruct", set the values of the items as below:
 
@@ -62,7 +63,7 @@ The inference speed of serving Falcon-40B-Instruct on a single RTX 4090 is about
 
 ### Example-2: Serving Aquila_Chat2_34B
 
-To serve the Aquila_Chat2_34B model, the following changes should be made for ```inferflow_service.34b40b_on_24gb_vram.ini```:
+To serve the Aquila_Chat2_34B model, the following changes should be made to ```inferflow_service.34b40b_on_24gb_vram.ini```:
 1. In section "transformer_engine", set the value of "models" to "falcon_40b_instruct".
 2. In section "model.aquila_chat2_34b", set the values of the items as below:
 
@@ -93,7 +94,7 @@ The inference speed of serving Aquila_Chat2_34B on a single RTX 4090 is about 12
 
 ### Example-3: Serving Yi_34B_Chat
 
-To serve the Yi_34B_Chat model, the following changes should be made for ```inferflow_service.34b40b_on_24gb_vram.ini```:
+To serve the Yi_34B_Chat model, the following changes should be made to ```inferflow_service.34b40b_on_24gb_vram.ini```:
 1. In section "transformer_engine", set the value of "models" to "falcon_40b_instruct".
 2. In section "model.yi_34b_chat", set the values of the items as below:
 
