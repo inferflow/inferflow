@@ -1,0 +1,51 @@
+{
+    "COMMENTS": "Please refer to docs/model_setup.md for instructions about editing model_spec.json.",
+
+    "config_file": "config.json",
+    "model_files": ["pytorch_model.bin"],
+    "model_file_format": "pickle",
+
+    "tokenizer_files": ["vocab.json", "special_tokens_map.json"],
+    "token_bytes_mapping": 1,
+    "tokenization_algorithm": "bpe",
+    "generation_config": "generation_config.json",
+
+    "network_structure":
+    {
+        "type": "transformer.decoder_only",
+        "normalization_function": "std",
+        "activation_function": "relu",
+        "position_embedding": "empty",
+        "pos_embedding_offset": 2,
+
+        "qk_column_order": 2,
+        "qkv_format": 1,
+
+        "tensor_name_prefix": "decoder.",
+        "tensor_name_mapping":
+        {
+            "embed_tokens.weight": "dec.token_embeddings.weight",
+            "embed_positions.weight": "dec.pos_embeddings.weight", 
+            "layers.{i}.self_attn.q_proj.weight": "dec.{i}.self_attn.wq.weight",
+            "layers.{i}.self_attn.q_proj.bias": "dec.{i}.self_attn.wq.bias",
+            "layers.{i}.self_attn.k_proj.weight": "dec.{i}.self_attn.wk.weight",
+            "layers.{i}.self_attn.k_proj.bias": "dec.{i}.self_attn.wk.bias",
+            "layers.{i}.self_attn.v_proj.weight": "dec.{i}.self_attn.wv.weight",
+            "layers.{i}.self_attn.v_proj.bias": "dec.{i}.self_attn.wv.bias",
+            "layers.{i}.self_attn.out_proj.weight": "dec.{i}.self_attn.wo.weight",
+            "layers.{i}.self_attn.out_proj.bias": "dec.{i}.self_attn.wo.bias",
+            "layers.{i}.self_attn_layer_norm.weight": "dec.{i}.self_attn.post_norm.weight",
+            "layers.{i}.self_attn_layer_norm.bias": "dec.{i}.self_attn.post_norm.bias",
+            "layers.{i}.final_layer_norm.weight": "dec.{i}.feed_forward.post_norm.weight",
+            "layers.{i}.final_layer_norm.bias": "dec.{i}.feed_forward.post_norm.bias",
+            "layers.{i}.fc1.weight": "dec.{i}.feed_forward.w1.weight",
+            "layers.{i}.fc1.bias": "dec.{i}.feed_forward.w1.bias",
+            "layers.{i}.fc2.weight": "dec.{i}.feed_forward.w2.weight",
+            "layers.{i}.fc2.bias": "dec.{i}.feed_forward.w2.bias",
+            "layer_norm.weight": "dec.output_norm.weight",
+            "layer_norm.bias": "dec.output_norm.bias",
+            "project_in.weight": "input_transform.weight",
+            "project_out.weight": "output_transform.weight"
+        }
+    }
+}
