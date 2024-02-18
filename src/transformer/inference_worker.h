@@ -177,8 +177,12 @@ protected:
     AttentionOutput ProcessGpuLayer_Attention(int layer_idx,
         const StdDeviceNetwork::AttentionLayer &layer, const DeviceTensor *input_q,
         const InputKV *input_kv, int heap_idx, bool is_encoder);
-    DeviceTensor* ProcessGpuLayer_FeedForward(
-        int layer_idx, const StdDeviceNetwork::FeedForwardLayer &layer,
+    DeviceTensor* ProcessGpuLayer_FeedForward(int layer_idx,
+        const StdDeviceNetwork::FeedForwardLayer &layer,
+        DeviceTensor *input_tensor, int heap_idx, bool is_encoder,
+        bool enable_tensor_printing = true);
+    DeviceTensor* ProcessGpuLayer_Moe(
+        int layer_idx, const StdDeviceNetwork::FfnMoeLayer &layer,
         DeviceTensor *input_tensor, int heap_idx, bool is_encoder);
 
     bool Attention_CalculateCurQKV(CurQKV &cur_qkv, int layer_idx,

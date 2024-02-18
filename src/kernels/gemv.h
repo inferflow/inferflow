@@ -472,6 +472,7 @@ __global__ void GemvHalf_AX_Alg3_Kernel(half * __restrict__ Y,
     const half * __restrict__ bias_data, int M, int N)
 {
     const int stride = 8;
+    const int groups = N / stride;
     const int zi = threadIdx.z + blockIdx.z * blockDim.z;
     const int row_idx = threadIdx.y + blockIdx.y * blockDim.y + zi * gridDim.y;
     int tid = threadIdx.x;
@@ -484,42 +485,43 @@ __global__ void GemvHalf_AX_Alg3_Kernel(half * __restrict__ Y,
     }
 
     half sum = 0;
-    if (threadIdx.x < N / stride)
-    {
-        int iterations = max(1, N / blockDim.x / stride);
-        const float4 *row_data = A4 + row_idx * (N / stride);
+    int iterations = (groups + blockDim.x - 1) / blockDim.x;
+    const float4 *row_data = A4 + row_idx * groups;
 
-        #pragma unroll
-        for(int idx = 0; idx < iterations; idx++)
-        {
-            int float4_offset = (idx * blockDim.x + threadIdx.x % blockDim.x);
-            float4 a_val = row_data[float4_offset];
-            float4 x_val = X4[float4_offset];
-            const half2 *x_h1 = (half2*)&x_val.x;
-            const half2 *x_h2 = (half2*)&x_val.y;
-            const half2 *x_h3 = (half2*)&x_val.z;
-            const half2 *x_h4 = (half2*)&x_val.w;
-            const half2 *a_h1 = (half2*)&a_val.x;
-            const half2 *a_h2 = (half2*)&a_val.y;
-            const half2 *a_h3 = (half2*)&a_val.z;
-            const half2 *a_h4 = (half2*)&a_val.w;
-            sum = __hfma(x_h1->x, a_h1->x, sum);
-            sum = __hfma(x_h1->y, a_h1->y, sum);
-            sum = __hfma(x_h2->x, a_h2->x, sum);
-            sum = __hfma(x_h2->y, a_h2->y, sum);
-            sum = __hfma(x_h3->x, a_h3->x, sum);
-            sum = __hfma(x_h3->y, a_h3->y, sum);
-            sum = __hfma(x_h4->x, a_h4->x, sum);
-            sum = __hfma(x_h4->y, a_h4->y, sum);
-            //sum = __hadd(sum, __hmul(x_h1->x, a_h1->x));
-            //sum = __hadd(sum, __hmul(x_h1->y, a_h1->y));
-            //sum = __hadd(sum, __hmul(x_h2->x, a_h2->x));
-            //sum = __hadd(sum, __hmul(x_h2->y, a_h2->y));
-            //sum = __hadd(sum, __hmul(x_h3->x, a_h3->x));
-            //sum = __hadd(sum, __hmul(x_h3->y, a_h3->y));
-            //sum = __hadd(sum, __hmul(x_h4->x, a_h4->x));
-            //sum = __hadd(sum, __hmul(x_h4->y, a_h4->y));
+    #pragma unroll
+    for(int idx = 0; idx < iterations; idx++)
+    {
+        int group_idx = (idx * blockDim.x + threadIdx.x % blockDim.x);
+        if (group_idx >= groups) {
+            break;
         }
+
+        float4 a_val = row_data[group_idx];
+        float4 x_val = X4[group_idx];
+        const half2 *x_h1 = (half2*)&x_val.x;
+        const half2 *x_h2 = (half2*)&x_val.y;
+        const half2 *x_h3 = (half2*)&x_val.z;
+        const half2 *x_h4 = (half2*)&x_val.w;
+        const half2 *a_h1 = (half2*)&a_val.x;
+        const half2 *a_h2 = (half2*)&a_val.y;
+        const half2 *a_h3 = (half2*)&a_val.z;
+        const half2 *a_h4 = (half2*)&a_val.w;
+        sum = __hfma(x_h1->x, a_h1->x, sum);
+        sum = __hfma(x_h1->y, a_h1->y, sum);
+        sum = __hfma(x_h2->x, a_h2->x, sum);
+        sum = __hfma(x_h2->y, a_h2->y, sum);
+        sum = __hfma(x_h3->x, a_h3->x, sum);
+        sum = __hfma(x_h3->y, a_h3->y, sum);
+        sum = __hfma(x_h4->x, a_h4->x, sum);
+        sum = __hfma(x_h4->y, a_h4->y, sum);
+        //sum = __hadd(sum, __hmul(x_h1->x, a_h1->x));
+        //sum = __hadd(sum, __hmul(x_h1->y, a_h1->y));
+        //sum = __hadd(sum, __hmul(x_h2->x, a_h2->x));
+        //sum = __hadd(sum, __hmul(x_h2->y, a_h2->y));
+        //sum = __hadd(sum, __hmul(x_h3->x, a_h3->x));
+        //sum = __hadd(sum, __hmul(x_h3->y, a_h3->y));
+        //sum = __hadd(sum, __hmul(x_h4->x, a_h4->x));
+        //sum = __hadd(sum, __hmul(x_h4->y, a_h4->y));
     }
 
     sum = WarpReduceSumAll(sum);
@@ -790,7 +792,7 @@ __global__ void GemvHalf_AX_Q6_B64T1_Kernel(half * __restrict__ Y,
     const uint8_t * __restrict__ A, const half * __restrict__ X,
     int M, int N)
 {
-    const int stride = 32;
+    //const int stride = 32;
     const int block_capacity = Q6_B64_CAPACITY;
     const int quant_block_num_per_row = N / block_capacity;
     int tid = threadIdx.x;
@@ -870,7 +872,7 @@ __global__ void GemvHalf_AX_Q5_B64T1_Kernel(half * __restrict__ Y,
     const uint8_t * __restrict__ A, const half * __restrict__ X,
     int M, int N)
 {
-    const int stride = 32;
+    //const int stride = 32;
     const int block_capacity = Q5_B64_CAPACITY;
     const int quant_block_num_per_row = N / block_capacity;
     int tid = threadIdx.x;
@@ -1023,7 +1025,7 @@ __global__ void GemvHalf_AX_Q4_B64T1_Kernel(half * __restrict__ Y,
     const uint8_t * __restrict__ A, const half * __restrict__ X,
     int M, int N)
 {
-    const int stride = 32;
+    //const int stride = 32;
     const int block_capacity = Q4_B64_CAPACITY;
     const int quant_block_num_per_row = N / block_capacity;
     int tid = threadIdx.x;
@@ -1256,7 +1258,7 @@ __global__ void GemvHalf_AX_Q3H_B64T1_Kernel(half * __restrict__ Y,
     const uint8_t * __restrict__ A, const half * __restrict__ X,
     int M, int N)
 {
-    const int stride = 32;
+    //const int stride = 32;
     const int block_capacity = Q3H_B64_CAPACITY;
     const int quant_block_num_per_row = N / block_capacity;
     int tid = threadIdx.x;
@@ -1502,6 +1504,7 @@ __global__ void Gemv_AX8_Q8_B32T2_Kernel(half * __restrict__ Y,
     const int stride = 32;
     const int quant_blocks_per_row = cx / stride;
     const int groups_per_quant_block = Q8B32_CAPACITY / 4; //4 is related to dp4a
+    const int groups_per_row = quant_blocks_per_row * groups_per_quant_block;
     const int groups_per_thread = 2;
     const int quant_blocks_per_warp = groups_per_thread * WARP_SIZE / groups_per_quant_block;
     int tid = threadIdx.x;
@@ -1521,7 +1524,15 @@ __global__ void Gemv_AX8_Q8_B32T2_Kernel(half * __restrict__ Y,
     {
         int start_group_idx = (tid * groups_per_thread) % groups_per_quant_block;
         int end_group_idx = start_group_idx + groups_per_thread;
+        if (end_group_idx > groups_per_row) {
+            end_group_idx = groups_per_row;
+        }
+
         int delta_idx = (tid * groups_per_thread) / groups_per_quant_block;
+        if (block_idx + delta_idx >= quant_blocks_per_row) {
+            break;
+        }
+
         const auto *block_x = blocks_x + block_idx + delta_idx;
         const auto *block_a = blocks_a + row_idx * quant_blocks_per_row + block_idx + delta_idx;
 
@@ -1556,6 +1567,138 @@ __global__ void Gemv_AX8_Q8_B32T2_Kernel(half * __restrict__ Y,
         //    printf("row: %d, tid: %d, block_idx: %d, group range: [%d, %d), group_sum: %d, sum: %.3f\n",
         //        row_idx, tid, block_idx + delta_idx, start_group_idx, end_group_idx, group_sum, sum);
         //}
+    }
+
+    sum = WarpReduceSumAll(sum);
+
+    if (tid == 0) {
+        Y[row_idx] = sum;
+    }
+}
+
+// Y = A*X (A: M*N, X: N*1, Y: M*1)
+template <typename BlockType>
+__global__ void Gemv_AX8_QX_B32_Kernel(half * __restrict__ Y,
+    const uint8_t * __restrict__ A, const uint8_t * __restrict__ X,
+    int cx, int cy)
+{
+    const int block_capacity = 32;
+    const int stride = 32;
+    const int quant_blocks_per_row = cx / stride;
+    const int groups_per_quant_block = block_capacity / 4; //4 is related to dp4a
+    const int groups_per_row = quant_blocks_per_row * groups_per_quant_block;
+    const int groups_per_thread = 2;
+    const int quant_blocks_per_warp = groups_per_thread * WARP_SIZE / groups_per_quant_block;
+    int tid = threadIdx.x;
+    int row_idx = blockIdx.y * blockDim.y + threadIdx.y;
+    //int lane_id = threadIdx.x % WARP_SIZE;
+
+    if (row_idx >= cy) {
+        return;
+    }
+
+    const auto *blocks_x = reinterpret_cast<const BlockQ8_B32T2*>(X);
+    const auto *blocks_a = reinterpret_cast<const BlockType*>(A);
+
+    float sum = 0.0f;
+    int n1 = 0, n2 = 0, n0 = 0x01010101;
+    for (int block_idx = 0; block_idx < quant_blocks_per_row; block_idx += quant_blocks_per_warp)
+    {
+        int start_group_idx = (tid * groups_per_thread) % groups_per_quant_block;
+        int end_group_idx = start_group_idx + groups_per_thread;
+        if (end_group_idx > groups_per_row) {
+            end_group_idx = groups_per_row;
+        }
+
+        int delta_idx = (tid * groups_per_thread) / groups_per_quant_block;
+        if (block_idx + delta_idx >= quant_blocks_per_row) {
+            break;
+        }
+
+        const auto *block_x = blocks_x + block_idx + delta_idx;
+        const auto *block_a = blocks_a + row_idx * quant_blocks_per_row + block_idx + delta_idx;
+
+        int group_sum = 0, group_sum2 = 0;
+#       pragma unroll
+        for (int group_idx = start_group_idx; group_idx < end_group_idx; group_idx++)
+        {
+            n1 = Quantization::GetInt4(*block_a, 4 * group_idx);
+            n2 = Quantization::GetInt4(*block_x, 4 * group_idx);
+            group_sum = __dp4a(n1, n2, group_sum);
+            group_sum2 = __dp4a(n0, n2, group_sum2);
+        }
+
+        const float scale = (float)*(const inferflow_fp16*)&block_a->scale;
+        const float base = (float)*(const inferflow_fp16*)&block_a->base;
+        sum += scale * group_sum * (float)block_x->scale;
+        sum += base * group_sum2 * (float)block_x->scale;
+    }
+
+    sum = WarpReduceSumAll(sum);
+
+    if (tid == 0) {
+        Y[row_idx] = sum;
+    }
+}
+
+// Y = A*X (A: M*N, X: N*1, Y: M*1)
+template <typename BlockType>
+__global__ void Gemv_AX8_QX_B64_Kernel(half * __restrict__ Y,
+    const uint8_t * __restrict__ A, const uint8_t * __restrict__ X,
+    int cx, int cy)
+{
+    const int block_capacity = 64;
+    const int stride = 64;
+    const int quant_blocks_per_row = cx / stride;
+    const int groups_per_quant_block = block_capacity / 4; //4 is related to dp4a
+    const int groups_per_row = quant_blocks_per_row * groups_per_quant_block;
+    const int groups_per_thread = 4;
+    const int quant_blocks_per_warp = groups_per_thread * WARP_SIZE / groups_per_quant_block;
+    int tid = threadIdx.x;
+    int row_idx = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (row_idx >= cy) {
+        return;
+    }
+
+    const auto *blocks_x = reinterpret_cast<const BlockQ8_B32T2*>(X);
+    const auto *blocks_a = reinterpret_cast<const BlockType*>(A);
+
+    float sum = 0.0f;
+    int n1 = 0, n2 = 0, n0 = 0x01010101;
+    for (int block_idx = 0; block_idx < quant_blocks_per_row; block_idx += quant_blocks_per_warp)
+    {
+        int start_group_idx = (tid * groups_per_thread) % groups_per_quant_block;
+        int end_group_idx = start_group_idx + groups_per_thread;
+        if (end_group_idx > groups_per_row) {
+            end_group_idx = groups_per_row;
+        }
+
+        int delta_idx = (tid * groups_per_thread) / groups_per_quant_block;
+        if (block_idx + delta_idx >= quant_blocks_per_row) {
+            break;
+        }
+
+        const auto *block_x = start_group_idx >= 8
+            ? (blocks_x + 2 * (block_idx + delta_idx) + 1)
+            : (blocks_x + 2 * (block_idx + delta_idx));
+        const auto *block_a = blocks_a + row_idx * quant_blocks_per_row + block_idx + delta_idx;
+
+        int group_sum = 0, group_sum2 = 0;
+#       pragma unroll
+        for (int group_idx = start_group_idx; group_idx < end_group_idx; group_idx++)
+        {
+            n1 = Quantization::GetInt4(*block_a, 4 * group_idx);
+            n2 = Quantization::GetInt4(*block_x, 4 * (group_idx % 8));
+            group_sum = __dp4a(n1, n2, group_sum);
+            group_sum2 = __dp4a(n0, n2, group_sum2);
+            //printf("group_idx: %d, n1: 0x%x, n2: 0x%x\n", group_idx, n1, (uint32_t)n2);
+        }
+
+        const float scale = (float)*(const inferflow_fp16*)&block_a->scale;
+        const float base = (float)*(const inferflow_fp16*)&block_a->base;
+        sum += scale * group_sum * (float)block_x->scale;
+        sum += base * group_sum2 * (float)block_x->scale;
     }
 
     sum = WarpReduceSumAll(sum);

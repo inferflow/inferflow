@@ -121,6 +121,7 @@ public:
         const string &section, const ElementTypeMap &element_type_map,
         const MultiGpuStrategyMap &multi_gpu_strategy_map,
         const DecodingStrategyMap &decoding_strategy_map,
+        const LayerTensorIdMap &layer_tensor_id_map,
         const JsonParser &jparser);
     static bool LoadDeviceGroups(vector<vector<int>> &device_groups,
         const ConfigData &cfg_data, const string &section, const string &key);

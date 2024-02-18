@@ -19,7 +19,6 @@ struct BlockQ8_B32T1
 // configuration type T2 (16-bit scale, base = 0)
 // Effectively 8.5 bits per data item
 // (2 + 32) * 8 / 32 = 8.5
-#define Q8B32_CAPACITY 32
 struct BlockQ8_B32T2
 {
     inferflow_fp16 scale;

@@ -53,6 +53,7 @@ bool InferenceEngine::Init(const InferenceConfig &cfg)
     config_ex_.is_gpu_tensor_row_major = false;
     //config_ex_.matrix_mul_alg = MatrixMulAlg::Bruce;
     config_ex_.gemv_alg = VectorMatrixMulAlg::Alg3;
+    //config_ex_.gemv_alg = VectorMatrixMulAlg::Cublas;
     config_ex_.enable_full_quant_gemv = true;
 
     if (config_.debug.is_study_mode && config_.debug.show_tensors)
@@ -68,7 +69,7 @@ bool InferenceEngine::Init(const InferenceConfig &cfg)
 
     const ModelSpec *model_spec = config_.models.empty() ? nullptr : &config_.models[0];
     if (model_spec == nullptr) {
-        LogError("No model is available");
+        LogError("No model is available!");
         return false;
     }
 
@@ -1414,9 +1415,11 @@ bool InferenceEngine::LoadConfig(InferenceConfig &config, const string &config_p
     ElementTypeMap element_type_map;
     MultiGpuStrategyMap multi_gpu_strategy_map;
     DecodingStrategyMap decoding_strategy_map;
+    LayerTensorIdMap layer_tensor_id_map;
     TensorCommon::InitElementTypeMap(element_type_map);
     TransformerModel::InitMultiGpuStrategyMap(multi_gpu_strategy_map);
     DecodingStrategies::InitStrategyMap(decoding_strategy_map);
+    NetworkStructure::BuildLayerTensorIdMap(layer_tensor_id_map);
 
     JsonParser jparser;
     jparser.Init();
@@ -1484,7 +1487,8 @@ bool InferenceEngine::LoadConfig(InferenceConfig &config, const string &config_p
         string model_section = "model." + spec.sid;
         cfg_data.AddMacro("model_name", spec.sid);
         ret = LoadModelSpec(spec, cfg_data, model_section, element_type_map,
-            multi_gpu_strategy_map, decoding_strategy_map, jparser);
+            multi_gpu_strategy_map, decoding_strategy_map, layer_tensor_id_map,
+            jparser);
         if (!ret)
         {
             LogError("Failed to load the specification of model %s", spec.sid.c_str());
@@ -1556,6 +1560,7 @@ bool InferenceEngine::LoadModelSpec(ModelSpec &spec, const ConfigData &cfg_data,
     const string &section, const ElementTypeMap &element_type_map,
     const MultiGpuStrategyMap &multi_gpu_strategy_map,
     const DecodingStrategyMap &decoding_strategy_map,
+    const LayerTensorIdMap &layer_tensor_id_map,
     const JsonParser &jparser)
 {
     string str;
@@ -1654,6 +1659,33 @@ bool InferenceEngine::LoadModelSpec(ModelSpec &spec, const ConfigData &cfg_data,
         int element_size = TensorCommon::ElementSize(iter->second);
         spec.device_weight_data_type = element_size >= 2
             ? ElementType::F16 : iter->second;
+    }
+
+    const int tensor_num = (const int)LayerTensorId::COUNT;
+    for (int tensor_idx = 0; tensor_idx < tensor_num; tensor_idx++)
+    {
+        spec.device_weight_data_types[tensor_idx] = ElementType::Auto;
+    }
+
+    auto tensor_iter = layer_tensor_id_map.begin();
+    for (; tensor_iter != layer_tensor_id_map.end(); tensor_iter++)
+    {
+        string key = "device_weight_data_type." + tensor_iter->first;
+        int tensor_type_id = (int)tensor_iter->second;
+        str.clear();
+        if (cfg_data.GetItem(section, key, str, false))
+        {
+            auto iter = element_type_map.find(str);
+            if (iter == element_type_map.end())
+            {
+                LogError("Invalid %s for model %s", key.c_str(), spec.sid.c_str());
+                return false;
+            }
+
+            int element_size = TensorCommon::ElementSize(iter->second);
+            spec.device_weight_data_types[tensor_type_id] = element_size >= 2
+                ? ElementType::F16 : iter->second;
+        }
     }
 
     str.clear();

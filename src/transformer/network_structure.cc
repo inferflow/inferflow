@@ -12,7 +12,7 @@ using namespace sslib;
 // class NetworkStructure
 
 bool NetworkStructure::Init(NetworkType network_type, int encoder_layer_count,
-    int decoder_layer_count, const string &tensor_name_prefix,
+    int decoder_layer_count, int expert_count, const string &tensor_name_prefix,
     const map<string, string> *tensor_map_ptr)
 {
     map<string, string> tensor_map;
@@ -31,7 +31,7 @@ bool NetworkStructure::Init(NetworkType network_type, int encoder_layer_count,
     }
 
     int max_layer_count = max(encoder_layer_count, decoder_layer_count);
-    ExpandTensorNameMap(tensor_map_ex_, tensor_map, max_layer_count);
+    ExpandTensorNameMap(tensor_map_ex_, tensor_map, max_layer_count, expert_count);
 
     return true;
 }
@@ -97,6 +97,19 @@ bool NetworkStructure::IsEncoderOnlyTransformer(NetworkType t)
 bool NetworkStructure::IsDecoderOnlyTransformer(NetworkType t)
 {
     return t >= NetworkType::DecoderOnly_Transformer;
+}
+
+//static
+void NetworkStructure::BuildLayerTensorIdMap(LayerTensorIdMap &the_map)
+{
+    the_map["attn_wq"] = LayerTensorId::WQ;
+    the_map["attn_wk"] = LayerTensorId::WK;
+    the_map["attn_wv"] = LayerTensorId::WV;
+    the_map["attn_wo"] = LayerTensorId::WO;
+    the_map["attn_wo"] = LayerTensorId::WO;
+    the_map["ffn_w1"] = LayerTensorId::W1;
+    the_map["ffn_w2"] = LayerTensorId::W2;
+    the_map["ffn_w3"] = LayerTensorId::W3;
 }
 
 //static
@@ -168,14 +181,20 @@ void NetworkStructure::BuildTensorNameToIdMap(map<string, LayerTypeAndTensorId> 
     tensor_map["feed_forward.w1n3.weight"] = v;
     v.second = LayerTensorId::W1N3_B;
     tensor_map["feed_forward.w1n3.bias"] = v;
+
+    v.first = LayerType::MOE;
+    v.second = LayerTensorId::MOE_GATE;
+    tensor_map["moe.gate.weight"] = v;
+    v.second = LayerTensorId::MOE_GATE_B;
+    tensor_map["moe.gate.bias"] = v;
 }
 
 void NetworkStructure::ExpandTensorNameMap(map<string, string> &tensor_map_ex,
-    const map<string, string> &tensor_map, int layers) const
+    const map<string, string> &tensor_map, int layers, int experts) const
 {
     tensor_map_ex.clear();
 
-    string source_str, target_str;
+    string source_str, target_str, source_trans, target_trans;
     char buf[32];
     for (auto iter = tensor_map.begin(); iter != tensor_map.end(); iter++)
     {
@@ -194,7 +213,23 @@ void NetworkStructure::ExpandTensorNameMap(map<string, string> &tensor_map_ex,
             sprintf(buf, "%d", layer_id);
             String::ReplaceAll(source_str, "{i}", buf);
             String::ReplaceAll(target_str, "{i}", buf);
-            tensor_map_ex[source_str] = target_str;
+
+            bool is_expert = source_str.find("{j}") != string::npos;
+            if (!is_expert)
+            {
+                tensor_map_ex[source_str] = target_str;
+                continue;
+            }
+
+            for (int expert_id = 0; expert_id < experts; expert_id++)
+            {
+                source_trans = source_str;
+                target_trans = target_str;
+                sprintf(buf, "%d", expert_id);
+                String::ReplaceAll(source_trans, "{j}", buf);
+                String::ReplaceAll(target_trans, "{j}", buf);
+                tensor_map_ex[source_trans] = target_trans;
+            }
 
             //if (layer_id == 0) {
             //    LogKeyInfo("%s --> %s", source_str.c_str(), target_str.c_str());
@@ -228,6 +263,7 @@ void NetworkStructure::BuildTensorNameMap(map<string, string> &tensor_map,
             BuildTensorNameMap_Bloom(tensor_map, tensor_name_prefix);
             break;
         case NetworkType::DecoderOnly_Transformer:
+        case NetworkType::SparseMoe_DecoderOnly_Transformer:
             BuildTensorNameMap_TransformerDecoderOnly(tensor_map, tensor_name_prefix);
             break;
         default:

@@ -107,7 +107,7 @@ enum class NetworkType
     DecoderOnly_Transformer,
     BLOOM,
     LLAMA,
-    MISTRAL
+    SparseMoe_DecoderOnly_Transformer
     //add more decoder-only model types here
 };
 
@@ -122,7 +122,15 @@ enum class LayerType
 {
     SELF_ATTN,
     CROSS_ATTN,
-    FFN //feed forward
+    FFN,    //feed forward
+    MOE     //
+};
+
+enum class FfnLayerType
+{
+    Std = 0,
+    Expert,
+    SharedExpert
 };
 
 enum class LayerTensorId
@@ -155,16 +163,22 @@ enum class LayerTensorId
     W3,
     W3_B,
     W1N3,
-    W1N3_B
+    W1N3_B,
+
+    MOE_GATE,
+    MOE_GATE_B,
+
+    COUNT
 };
 
 typedef pair<LayerType, LayerTensorId> LayerTypeAndTensorId;
+typedef map<string, LayerTensorId, StrLessNoCase> LayerTensorIdMap;
 
 class NetworkStructure
 {
 public:
     bool Init(NetworkType network_type, int encoder_layer_count,
-        int decoder_layer_count, const string &tensor_name_prefix,
+        int decoder_layer_count, int expert_count, const string &tensor_name_prefix,
         const map<string, string> *tensor_map_ptr = nullptr);
     bool UpdateTensorSpecTable(TensorSpecTable &spec_table) const;
 
@@ -174,6 +188,7 @@ public:
     static bool IsEncoderOnlyTransformer(NetworkType t);
     static bool IsDecoderOnlyTransformer(NetworkType t);
 
+    static void BuildLayerTensorIdMap(LayerTensorIdMap &the_map);
     static void BuildTensorNameToIdMap(map<string, LayerTypeAndTensorId> &tensor_map);
 
 protected:
@@ -184,7 +199,7 @@ protected:
 
 protected:
     void ExpandTensorNameMap(map<string, string> &tensor_map_ex,
-        const map<string, string> &tensor_map, int layers) const;
+        const map<string, string> &tensor_map, int layers, int experts) const;
 
     void BuildTensorNameMap(map<string, string> &tensor_map, NetworkType net_type,
         const string &tensor_name_prefix);

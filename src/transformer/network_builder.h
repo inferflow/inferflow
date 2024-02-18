@@ -31,6 +31,8 @@ struct TensorNameInfo
 {
     bool is_dec = true;
     int layer_id = 0;
+    int expert_id = -1;
+    bool is_shared_expert = false;
     LayerType layer_type = LayerType::SELF_ATTN;
     LayerTensorId tensor_id = LayerTensorId::ATTN_PRE_NORM;
 };
@@ -44,6 +46,7 @@ public:
 
     bool Init(const InferenceConfig &config, const InferenceConfigEx &config_ex,
         TransformerContext &ctx);
+    bool Init(NetworkBuilder &rhs);
 
     bool InitNetworkStructure(StdNetwork &net, const ModelSpec &spec) const;
 
@@ -60,6 +63,9 @@ public:
     bool CheckDeviceModel(const TransformerModel &model) const;
     bool CheckDeviceModel(const StdDeviceNetwork &net, const ModelSpec &model_spec,
         int sub_net_idx = -1) const;
+
+    static int GetDeviceByLayer(const ModelPartition &mp, int layer_id, bool is_decoder);
+    static int GetDeviceGroupIndex(const ModelPartition &mp, int layer_id, bool is_decoder);
 #endif //USE_CUDA
 
 #if defined(USE_CUDA)
@@ -109,6 +115,7 @@ protected:
 
     map<LayerTensorId, int> attn_tensor_id_map_;
     map<LayerTensorId, int> ffn_tensor_id_map_;
+    map<LayerTensorId, int> moe_tensor_id_map_;
 
 #if defined(USE_CUDA)
     DeviceTensorBuilder device_tensor_builder_;
@@ -120,9 +127,12 @@ protected:
         const TransformerModel &model, const char *prefix);
     void SetFeedForwardLayer(StdHostNetwork::FeedForwardLayer &layer,
         const TransformerModel &model, const char *prefix);
+    void SetFfnMoeLayer(StdHostNetwork::FfnMoeLayer &layer,
+        const TransformerModel &model, const char *prefix);
 
     void BuildAttnTensorIdMap(map<LayerTensorId, int> &tensor_id_map);
     void BuildFfnTensorIdMap(map<LayerTensorId, int> &tensor_id_map);
+    void BuildMoeTensorIdMap(map<LayerTensorId, int> &tensor_id_map);
 
     static void BuildLayerTensorMap(StdHostNetwork::AttentionLayer &layer);
     static void BuildLayerTensorMap(StdHostNetwork::FeedForwardLayer &layer);
@@ -130,13 +140,15 @@ protected:
     bool CheckModelLayer(const StdHostNetwork::AttentionLayer &layer,
         int layer_id, bool is_encoder, bool is_self_attn) const;
     bool CheckModelLayer(const StdHostNetwork::FeedForwardLayer &layer,
-        int layer_id, bool is_encoder) const;
+        int layer_id, bool is_encoder, FfnLayerType layer_type,
+        int expert_id = -1) const;
 
 #if defined(USE_CUDA)
     bool CheckModelLayer(const StdDeviceNetwork::AttentionLayer &layer,
         int layer_id, bool is_encoder, bool is_self_attn) const;
     bool CheckModelLayer(const StdDeviceNetwork::FeedForwardLayer &layer,
-        int layer_id, bool is_encoder) const;
+        int layer_id, bool is_encoder, FfnLayerType layer_type,
+        int expert_id = -1) const;
 #endif //USE_CUDA
 
     ggml_tensor* ConvertHostToGgml(const HostTensor *host_tensor, ggml_context* &ctx);
@@ -206,11 +218,12 @@ protected:
 
     void BuildTask_Std(DeviceTensorBuilder::Task &task,
         DeviceTensorEx &target_tensor, const HostTensor &cpu_tensor,
-        int tensor_type, const ModelSpec &model_spec,
+        LayerTensorId tensor_id, int tensor_type, const ModelSpec &model_spec,
         bool be_trans);
 
     static void BuildLayerTensorMap(StdDeviceNetwork::AttentionLayer &layer);
     static void BuildLayerTensorMap(StdDeviceNetwork::FeedForwardLayer &layer);
+    static void BuildLayerTensorMap(StdDeviceNetwork::FfnMoeLayer &layer);
 #endif //USE_CUDA
 };
 

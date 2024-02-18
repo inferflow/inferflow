@@ -215,27 +215,27 @@ bool Run(const string &config_path)
     LogKeyInfo("========== Inference ==========");
 
     //const auto &context = engine.context();
-    string prompt = " ";
+    //string prompt = " ";
     bool add_bos = false;
     TokenizationAlg tok_alg = TokenizationAlg::Auto;
 
-    vector<int> input_tokens;
-    engine.Tokenize(input_tokens, prompt, add_bos, tok_alg);
+    //vector<int> input_tokens;
+    //engine.Tokenize(input_tokens, prompt, add_bos, tok_alg);
 
     bool is_study_mode = engine_config.debug.is_study_mode;
-    if (is_study_mode)
-    {
-        cout << "tokens: ";
-        PrintInputTokens(input_tokens, engine, cout, true);
-    }
+    //if (is_study_mode)
+    //{
+    //    cout << "tokens: ";
+    //    PrintInputTokens(input_tokens, engine, cout, true);
+    //}
 
-    int context_len = 0;
+    //int context_len = 0;
 
     InferenceResult result;
     //ret = engine.Evaluate(result, input_tokens, context_len, cpu_threads);
 
-    context_len += (int)input_tokens.size();
-    input_tokens.clear();
+    //context_len += (int)input_tokens.size();
+    //input_tokens.clear();
 
     const ModelSpec *model_spec = engine_config.models.empty() ? nullptr : &engine_config.models[0];
     bool is_encoder_only = NetworkStructure::IsEncoderOnlyTransformer(model_spec->network_structure);

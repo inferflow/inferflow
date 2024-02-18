@@ -69,7 +69,7 @@ bool ModelReader::Load(TransformerModel &model, TransformerContext &ctx,
     if (!has_embedded_hparams || is_llama2_c)
     {
         model.network.Init(model.spec.network_structure, hparams.encoder_layers,
-            hparams.decoder_layers, model.spec.tensor_name_prefix,
+            hparams.decoder_layers, hparams.experts, model.spec.tensor_name_prefix,
             &model.spec.tensor_name_map);
     }
 
@@ -77,7 +77,7 @@ bool ModelReader::Load(TransformerModel &model, TransformerContext &ctx,
     NetworkType net_type = model.spec.network_structure;
     bool is_decoder_only = NetworkStructure::IsDecoderOnlyTransformer(net_type);
     if (is_decoder_only && model.spec.multi_gpu_strategy == MultiGpuStrategy::BY_LAYER
-        && (int)model.spec.device_groups.size() == 1
+        //&& (int)model.spec.device_groups.size() == 1
         && !has_embedded_hparams)
     {
         model.spec.is_eager_device_building = true;
@@ -148,7 +148,7 @@ bool ModelReader::Load(TransformerModel &model, TransformerContext &ctx,
     {
         network_builder_->InitNetworkStructure(model.std_network, model.spec);
         model.network.Init(model.spec.network_structure, hparams.encoder_layers,
-            hparams.decoder_layers, model.spec.tensor_name_prefix,
+            hparams.decoder_layers, hparams.experts, model.spec.tensor_name_prefix,
             &model.spec.tensor_name_map);
     }
 
@@ -383,13 +383,20 @@ bool ModelReader::LoadModelSpecJson(ModelSpec &model_spec, const string &file_pa
     net_struc_obj.GetFieldValue(model_spec.qkv_format, L"qkv_format", jdoc);
     net_struc_obj.GetFieldValue(model_spec.kq_scale, L"kq_scale", jdoc);
     net_struc_obj.GetFieldValue(model_spec.normalize_lm_head, L"normalize_lm_head", jdoc);
+    net_struc_obj.GetFieldValue(model_spec.is_attn_post_as_residual, L"is_attn_post_as_residual", jdoc);
     net_struc_obj.GetFieldValue(model_spec.is_parallel_attn, L"is_parallel_attn", jdoc);
     net_struc_obj.GetFieldValue(model_spec.mlp_attn_share_input, L"mlp_attn_share_input", jdoc);
 
     net_struc_obj.GetFieldValue(model_spec.use_self_attn_pre_norm, L"use_self_attn_pre_norm", jdoc);
 
     net_struc_obj.GetFieldValue(hparams.experts, L"expert_count", jdoc);
+    net_struc_obj.GetFieldValue(hparams.in_use_experts, L"using_expert_count", jdoc);
     net_struc_obj.GetFieldValue(hparams.moe_top_k, L"moe_top_k", jdoc);
+    net_struc_obj.GetFieldValue(hparams.moe_norm_top_k_prob, L"moe_norm_top_k_prob", jdoc);
+    net_struc_obj.GetFieldValue(hparams.moe_layer_start, L"moe_layer_start", jdoc);
+    net_struc_obj.GetFieldValue(hparams.moe_layer_end, L"moe_layer_end", jdoc);
+    net_struc_obj.GetFieldValue(hparams.has_shared_expert, L"has_shared_expert", jdoc);
+    hparams.in_use_experts = min(hparams.in_use_experts, hparams.experts);
 
     if (model_spec.model_file_format == ModelFileFormat::GGUF
         && model_spec.tensor_name_prefix.empty())
@@ -561,6 +568,8 @@ bool ModelReader::LoadConfigJson(TransformerModel &model, TokenizerConfig &tok_c
                 LogError("Failed to get the value of decoder_layers");
                 return false;
             }
+
+            ret = jobj.GetFieldValue(hparams.decoder_intermediate_size, L"intermediate_size", jdoc);
         }
 
         if (!is_encoder_only)
@@ -1718,6 +1727,23 @@ bool ModelReader::LoadModel_Pickle(TransformerModel &model, TransformerContext &
         LogKeyInfo("Loading tensors...");
     }
 
+    ModelPartition model_partition;
+    NetworkBuilder::GetDeviceAssignments(model_partition.decoder_assignments,
+        model.spec, false, model.spec.decoder_cpu_layer_count);
+
+    int builder_count = (int)model_partition.decoder_assignments.size();
+    PtrVector<NetworkBuilder> builder_list;
+    for (int builder_id = 0; builder_id < builder_count; builder_id++)
+    {
+        auto *builder = new NetworkBuilder;
+        builder->Init(*network_builder_);
+        builder_list.push_back(builder);
+    }
+
+#if defined(USE_CUDA)
+    int default_device_id = CudaUtil::GetDevice();
+#endif //USE_CUDA
+
     int start_idx = file_num == 0 ? -1 : 0;
     uint32_t proc_num = 0;
     TaskMonitor tm(10);
@@ -1759,7 +1785,8 @@ bool ModelReader::LoadModel_Pickle(TransformerModel &model, TransformerContext &
         for (int idx = 0; ret && local_proc_num < section_num; idx++)
         {
             int read_count = Pickle_ReadTensor(model, ctx, strm, reader, file_idx,
-                section_to_tensor_name_map, is_study_mode);
+                section_to_tensor_name_map, model_partition, builder_list,
+                is_study_mode);
             if (read_count <= -2)
             {
                 ret = idx >= section_num;
@@ -1812,6 +1839,9 @@ bool ModelReader::LoadModel_Pickle(TransformerModel &model, TransformerContext &
     //    }
     //}
 
+#if defined(USE_CUDA)
+    CudaUtil::SetDevice(default_device_id);
+#endif //USE_CUDA
     return ret;
 }
 
@@ -2036,6 +2066,7 @@ void ModelReader::Pickle_HandleSectionName(map<string, StrAndCount> &section_to_
 int ModelReader::Pickle_ReadTensor(TransformerModel &model, TransformerContext &ctx,
     IBinaryStream &strm, PickleReader &reader, int file_idx,
     const map<string, StrAndCount> &section_to_tensor_name_map,
+    const ModelPartition &model_partition, const PtrVector<NetworkBuilder> &builder_list,
     bool is_study_mode)
 {
     string section_name;
@@ -2121,13 +2152,23 @@ int ModelReader::Pickle_ReadTensor(TransformerModel &model, TransformerContext &
 
             if (is_succ && tni.layer_id >= model.spec.decoder_cpu_layer_count)
             {
-                HostTensor cpu_tensor;
-                ret = ReadAndTransTensor(cpu_tensor, mem_tensor_ptr,
-                    target_tensor_spec, ctx, strm);
-                Macro_RetFalseIf(!ret);
+                if (tni.expert_id < model.spec.hyper_params.in_use_experts)
+                {
+                    HostTensor cpu_tensor;
+                    ret = ReadAndTransTensor(cpu_tensor, mem_tensor_ptr,
+                        target_tensor_spec, ctx, strm);
+                    Macro_RetFalseIf(!ret);
 
-                network_builder_->BuildDeviceTensor(model.std_network.device_net,
-                    cpu_tensor, tni, model.spec);
+                    int device_id = NetworkBuilder::GetDeviceByLayer(model_partition,
+                        tni.layer_id, true);
+                    CudaUtil::SetDevice(device_id);
+
+                    int la_idx = NetworkBuilder::GetDeviceGroupIndex(model_partition,
+                        tni.layer_id, true);
+                    auto *net_builder = builder_list[la_idx];
+                    net_builder->BuildDeviceTensor(model.std_network.device_net,
+                        cpu_tensor, tni, model.spec);
+                }
                 has_device_tensor = true;
             }
         }
@@ -2205,16 +2246,24 @@ bool ModelReader::LoadModel_Safetensors(TransformerModel &model, TransformerCont
 {
     (void)is_study_mode;
     bool ret = true;
-    string model_file = spec.model_files.empty() ? "" : spec.model_files[0];
 
+    string model_file = spec.model_files.empty() ? "" : spec.model_files[0];
     int file_num = (int)model_file_list.size();
+    if (file_num > 1) {
+        LogKeyInfo("Loading tensors from %d files...", file_num);
+    }
+    else {
+        LogKeyInfo("Loading tensors...");
+    }
+
+    TaskMonitor tm(10);
     int start_idx = file_num == 0 ? -1 : 0;
     for (int file_idx = start_idx; file_idx < file_num; file_idx++)
     {
         const string &file_name = file_idx >= 0 ? model_file_list[file_idx]
             : model_file;
         string file_path = spec.dir + file_name;
-        LogKeyInfo("Loading tensors from %s...", file_name.c_str());
+        //LogKeyInfo("Loading tensors from %s...", file_name.c_str());
 
         BinaryFileStream strm;
         ret = strm.OpenForRead(file_path);
@@ -2227,9 +2276,10 @@ bool ModelReader::LoadModel_Safetensors(TransformerModel &model, TransformerCont
         ret = Safetensors_ReadHeader(model, strm, jparser);
         Macro_RetxFalseIf(!ret, LogError("Failed to read the header"));
 
-        ret = Safetensors_ReadTensors(model, ctx, strm, base_idx);
+        ret = Safetensors_ReadTensors(model, ctx, strm, base_idx, tm);
         Macro_RetxFalseIf(!ret, LogError("Failed to read tensors"));
     }
+    tm.End();
 
     return ret;
 }
@@ -2311,16 +2361,32 @@ bool ModelReader::Safetensors_ReadHeader(TransformerModel &model,
 }
 
 bool ModelReader::Safetensors_ReadTensors(TransformerModel &model,
-    TransformerContext &ctx, IBinaryStream &strm, int base_idx)
+    TransformerContext &ctx, IBinaryStream &strm, int base_idx,
+    TaskMonitor &tm)
 {
     bool ret = true;
     bool is_study_mode = false;
     uint64_t base_offset = strm.TellRd();
 
+    ModelPartition model_partition;
+    NetworkBuilder::GetDeviceAssignments(model_partition.decoder_assignments,
+        model.spec, false, model.spec.decoder_cpu_layer_count);
+
+    int builder_count = (int)model_partition.decoder_assignments.size();
+    PtrVector<NetworkBuilder> builder_list;
+    for (int builder_id = 0; builder_id < builder_count; builder_id++)
+    {
+        auto *builder = new NetworkBuilder;
+        builder->Init(*network_builder_);
+        builder_list.push_back(builder);
+    }
+
     auto &tensor_array = model.tensor_spec_table.tensor_array;
     int tensor_count = (int)tensor_array.size();
 
-    TaskMonitor tm(20);
+#if defined(USE_CUDA)
+    int default_device_id = CudaUtil::GetDevice();
+#endif //USE_CUDA
     for (int tensor_idx = base_idx; tensor_idx < tensor_count; tensor_idx++)
     {
         auto &tensor_spec = tensor_array[tensor_idx];
@@ -2330,6 +2396,11 @@ bool ModelReader::Safetensors_ReadTensors(TransformerModel &model,
         //    spec.data_type, spec.size, byte_count, spec.offset_in_file);
 
         strm.SeekRd(base_offset + tensor_spec.offset_in_file);
+
+        //if (tensor_spec.name.find("shared_experts") != string::npos)
+        //{
+        //    LogKeyInfo("shared-experts");
+        //}
 
         bool has_device_tensor = false;
 #if defined(USE_CUDA)
@@ -2347,12 +2418,22 @@ bool ModelReader::Safetensors_ReadTensors(TransformerModel &model,
                     model.std_network.device_net, model.spec);
                 if (is_succ && tni.layer_id >= model.spec.decoder_cpu_layer_count)
                 {
-                    HostTensor cpu_tensor;
-                    ret = ReadAndTransTensor(cpu_tensor, nullptr, tensor_spec, ctx, strm);
-                    Macro_RetFalseIf(!ret);
+                    if (tni.expert_id < model.spec.hyper_params.in_use_experts)
+                    {
+                        HostTensor cpu_tensor;
+                        ret = ReadAndTransTensor(cpu_tensor, nullptr, tensor_spec, ctx, strm);
+                        Macro_RetFalseIf(!ret);
 
-                    network_builder_->BuildDeviceTensor(model.std_network.device_net,
-                        cpu_tensor, tni, model.spec);
+                        int device_id = NetworkBuilder::GetDeviceByLayer(model_partition,
+                            tni.layer_id, true);
+                        CudaUtil::SetDevice(device_id);
+
+                        int la_idx = NetworkBuilder::GetDeviceGroupIndex(model_partition,
+                            tni.layer_id, true);
+                        auto *net_builder = builder_list[la_idx];
+                        net_builder->BuildDeviceTensor(model.std_network.device_net,
+                            cpu_tensor, tni, model.spec);
+                    }
                     has_device_tensor = true;
                 }
             }
@@ -2380,8 +2461,10 @@ bool ModelReader::Safetensors_ReadTensors(TransformerModel &model,
 
         tm.Progress(1 + tensor_idx);
     }
-    tm.End();
 
+#if defined(USE_CUDA)
+    CudaUtil::SetDevice(default_device_id);
+#endif //USE_CUDA
     return strm.IsGood();
 }
 

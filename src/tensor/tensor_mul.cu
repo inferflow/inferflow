@@ -432,7 +432,7 @@ bool TensorMul::Gemm_Bruce(DeviceTensor &C, const DeviceTensor &A,
 
     dim3 block(THREADS_PER_BLOCK);
     dim3 grid(BLOCK_STRIDE, div_ceil(M, BLOCK_ROWS), div_ceil(N, BLOCK_COLS * BLOCK_STRIDE));
-    size_t smem_max_size = std::max((BLOCK_ROWS + BLOCK_COLS) * AB_SMEM_STRIDE * sizeof(half),
+    int smem_max_size = (int)std::max((BLOCK_ROWS + BLOCK_COLS) * AB_SMEM_STRIDE * sizeof(half),
         BLOCK_ROWS * C_SMEM_STRIDE * sizeof(half));
     cudaFuncSetAttribute(GemmHalf_Bruce_Kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_max_size);
 
@@ -724,26 +724,26 @@ bool TensorMul::Gemv_AX_QuantQ8(DeviceTensor &Y, const DeviceTensor &A,
         ret = Gemv_AX8_Q8_B32T2(Y, A, X);
         break;
     case ElementType::Q6_B64T1:
-        //ret = Gemv_AX8_Q6_B64T1(Y, A, X);
+        ret = Gemv_AX8_Q6_B64T1(Y, A, X);
         break;
     case ElementType::Q5_B32T1:
         //ret = Gemv_AX8_Q5_B32T1(Y, A, X);
         break;
     case ElementType::Q5_B64T1:
-        //ret = Gemv_AX8_Q5_B64T1(Y, A, X);
+        ret = Gemv_AX8_Q5_B64T1(Y, A, X);
         break;
     case ElementType::Q4_B16:
         //ret = Gemv_AX8_Q4_B16(Y, A, X);
         break;
     case ElementType::Q4_B32T1A:
     case ElementType::Q4_B32T1B:
-        //ret = Gemv_AX8_Q4_B32T1(Y, A, X);
+        ret = Gemv_AX8_Q4_B32T1(Y, A, X);
         break;
     case ElementType::Q4_B64T1:
-        //ret = Gemv_AX8_Q4_B64T1(Y, A, X);
+        ret = Gemv_AX8_Q4_B64T1(Y, A, X);
         break;
     case ElementType::Q3H_B64T1:
-        //ret = Gemv_AX8_Q3H_B64T1(Y, A, X);
+        ret = Gemv_AX8_Q3H_B64T1(Y, A, X);
         break;
     case ElementType::Q3_B32T1A:
     case ElementType::Q3_B32T1B:
@@ -914,7 +914,8 @@ bool TensorMul::Gemv_AX_Q6_B64T1(DeviceTensor &Y, const DeviceTensor &A, const D
 {
     int cy = A.Rows(), cx = A.Columns();
     //2048 = 32 * 64 (i.e., warp size * Q6_B64_CAPACITY)
-    bool ret = GemvCheckN(cx, 2048, Q6_B64_CAPACITY);
+    //bool ret = GemvCheckN(cx, 2048, Q6_B64_CAPACITY);
+    bool ret = GemvCheckN(cx, 256, Q6_B64_CAPACITY);
     Macro_RetFalseIf(!ret);
 
     dim3 block, grid;
@@ -955,7 +956,8 @@ bool TensorMul::Gemv_AX_Q5_B64T1(DeviceTensor &Y, const DeviceTensor &A, const D
 {
     int cy = A.Rows(), cx = A.Columns();
     //2048 = 32 * 64 (i.e., warp size * Q5_B64_CAPACITY)
-    bool ret = GemvCheckN(cx, 2048, Q5_B64_CAPACITY);
+    //bool ret = GemvCheckN(cx, 2048, Q5_B64_CAPACITY);
+    bool ret = GemvCheckN(cx, 256, Q5_B64_CAPACITY);
     Macro_RetFalseIf(!ret);
 
     dim3 block, grid;
@@ -1015,7 +1017,8 @@ bool TensorMul::Gemv_AX_Q4_B64T1(DeviceTensor &Y, const DeviceTensor &A, const D
 {
     int cy = A.Rows(), cx = A.Columns();
     //2048 = 32 * 64 (i.e., warp size * Q4_B64_CAPACITY)
-    bool ret = GemvCheckN(cx, 2048, Q4_B64_CAPACITY);
+    //bool ret = GemvCheckN(cx, 2048, Q4_B64_CAPACITY);
+    bool ret = GemvCheckN(cx, 64, Q4_B64_CAPACITY);
     Macro_RetFalseIf(!ret);
 
     dim3 block, grid;
@@ -1035,7 +1038,8 @@ bool TensorMul::Gemv_AX_Q3H_B64T1(DeviceTensor &Y, const DeviceTensor &A, const 
 {
     int cy = A.Rows(), cx = A.Columns();
     //2048 = 32 * 64 (i.e., warp size * Q3H_B64_CAPACITY)
-    bool ret = GemvCheckN(cx, 2048, Q3H_B64_CAPACITY);
+    //bool ret = GemvCheckN(cx, 2048, Q3H_B64_CAPACITY);
+    bool ret = GemvCheckN(cx, 64, Q3H_B64_CAPACITY);
     Macro_RetFalseIf(!ret);
 
     dim3 block, grid;
@@ -1108,6 +1112,111 @@ bool TensorMul::Gemv_AX8_Q8_B32T2(DeviceTensor &Y, const DeviceTensor &A,
     const uint8_t *x_data = (const uint8_t*)X.data;
     half *y_data = Y.data_f16();
     Gemv_AX8_Q8_B32T2_Kernel<<<grid, block>>>(y_data, a_data, x_data, cx, cy);
+    return true;
+}
+
+//static
+bool TensorMul::Gemv_AX8_Q6_B64T1(DeviceTensor &Y, const DeviceTensor &A,
+    const DeviceTensor &X)
+{
+    int cy = A.Rows(), cx = A.Columns();
+    bool ret = GemvCheckN(cx, 64, 64);
+    Macro_RetFalseIf(!ret);
+
+    dim3 block, grid;
+    block.x = 64;
+    block.y = 128 / block.x;
+    grid.x = 1;
+    grid.y = (cy + block.y - 1) / block.y;
+
+    const uint8_t *a_data = (const uint8_t*)A.data;
+    const uint8_t *x_data = (const uint8_t*)X.data;
+    half *y_data = Y.data_f16();
+    Gemv_AX8_QX_B64_Kernel<BlockQ6_B64T1><<<grid, block>>>(y_data, a_data, x_data, cx, cy);
+    return true;
+}
+
+//static
+bool TensorMul::Gemv_AX8_Q5_B64T1(DeviceTensor &Y, const DeviceTensor &A,
+    const DeviceTensor &X)
+{
+    int cy = A.Rows(), cx = A.Columns();
+    bool ret = GemvCheckN(cx, 64, 64);
+    Macro_RetFalseIf(!ret);
+
+    dim3 block, grid;
+    block.x = 64;
+    block.y = 128 / block.x;
+    grid.x = 1;
+    grid.y = (cy + block.y - 1) / block.y;
+
+    const uint8_t *a_data = (const uint8_t*)A.data;
+    const uint8_t *x_data = (const uint8_t*)X.data;
+    half *y_data = Y.data_f16();
+    Gemv_AX8_QX_B64_Kernel<BlockQ5_B64T1><<<grid, block>>>(y_data, a_data, x_data, cx, cy);
+    return true;
+}
+
+//static
+bool TensorMul::Gemv_AX8_Q4_B64T1(DeviceTensor &Y, const DeviceTensor &A,
+    const DeviceTensor &X)
+{
+    int cy = A.Rows(), cx = A.Columns();
+    bool ret = GemvCheckN(cx, 64, 64);
+    Macro_RetFalseIf(!ret);
+
+    dim3 block, grid;
+    block.x = 64;
+    block.y = 128 / block.x;
+    grid.x = 1;
+    grid.y = (cy + block.y - 1) / block.y;
+
+    const uint8_t *a_data = (const uint8_t*)A.data;
+    const uint8_t *x_data = (const uint8_t*)X.data;
+    half *y_data = Y.data_f16();
+    Gemv_AX8_QX_B64_Kernel<BlockQ4_B64T1><<<grid, block>>>(y_data, a_data, x_data, cx, cy);
+    return true;
+}
+
+//static
+bool TensorMul::Gemv_AX8_Q4_B32T1(DeviceTensor &Y, const DeviceTensor &A,
+    const DeviceTensor &X)
+{
+    int cy = A.Rows(), cx = A.Columns();
+    bool ret = GemvCheckN(cx, 32, 32);
+    Macro_RetFalseIf(!ret);
+
+    dim3 block, grid;
+    block.x = 32;
+    block.y = 128 / block.x;
+    grid.x = 1;
+    grid.y = (cy + block.y - 1) / block.y;
+
+    const uint8_t *a_data = (const uint8_t*)A.data;
+    const uint8_t *x_data = (const uint8_t*)X.data;
+    half *y_data = Y.data_f16();
+    Gemv_AX8_QX_B32_Kernel<BlockQ4_B32T1><<<grid, block>>>(y_data, a_data, x_data, cx, cy);
+    return true;
+}
+
+//static
+bool TensorMul::Gemv_AX8_Q3H_B64T1(DeviceTensor &Y, const DeviceTensor &A,
+    const DeviceTensor &X)
+{
+    int cy = A.Rows(), cx = A.Columns();
+    bool ret = GemvCheckN(cx, 64, 64);
+    Macro_RetFalseIf(!ret);
+
+    dim3 block, grid;
+    block.x = 64;
+    block.y = 128 / block.x;
+    grid.x = 1;
+    grid.y = (cy + block.y - 1) / block.y;
+
+    const uint8_t *a_data = (const uint8_t*)A.data;
+    const uint8_t *x_data = (const uint8_t*)X.data;
+    half *y_data = Y.data_f16();
+    Gemv_AX8_QX_B64_Kernel<BlockQ3H_B64T1><<<grid, block>>>(y_data, a_data, x_data, cx, cy);
     return true;
 }
 

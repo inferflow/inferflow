@@ -159,11 +159,12 @@ public:
 
     static HOST_AND_DEVICE FORCE_INLINE int GetInt4(const BlockQ8_B32T2 &block, int start_offset)
     {
-        int n = 0;
-        n = *(uint16_t*)(block.data + start_offset);
+        //return *(int*)(block.data + start_offset);
+        uint32_t n = 0;
+        n = *(uint16_t*)(block.data + start_offset + 2);
         n <<= 16;
-        n |= *(uint16_t*)(block.data + start_offset + 2);
-        return n;
+        n |= *(uint16_t*)(block.data + start_offset);
+        return (int)n;
     }
 
     template <typename TargetType>
@@ -222,6 +223,18 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     // Q6_B64T1 (6-bit quantization with block size 64)
     ////////////////////////////////////////////////////////////////////////////
+
+    static HOST_AND_DEVICE FORCE_INLINE int GetInt4(const BlockQ6_B64T1 &block, int start_offset)
+    {
+        const int group_idx = start_offset / 4;
+        const uint16_t qd = *(const uint16_t*)(block.data + 2 * group_idx);
+        const uint16_t h = (uint16_t)block.data_h[group_idx];
+
+        int n = ((qd & 0x0F00) >> 8) | ((qd & 0xF000) >> 4) | (h & 0x30) | ((h & 0xC0) << 6);
+        n <<= 16;
+        n |= ((qd & 0x0F) | ((qd & 0xF0) << 4)) | ((h & 0x03) << 4) | ((h & 0x0C) << 10);
+        return n;
+    }
 
     template <typename TargetType>
     static HOST_AND_DEVICE void DequantizeQ6_B64T1(TargetType *target,
@@ -385,6 +398,18 @@ public:
     // Q5_B64T1 (5-bit quantization with block size 64)
     ////////////////////////////////////////////////////////////////////////////
 
+    static HOST_AND_DEVICE FORCE_INLINE int GetInt4(const BlockQ5_B64T1 &block, int start_offset)
+    {
+        const int group_idx = start_offset / 4;
+        const uint16_t qd = *(const uint16_t*)(block.data + 2 * group_idx);
+        const uint16_t h = (uint16_t)(block.data_h[group_idx / 2] >> (group_idx % 2 * 4));
+
+        int n = ((qd & 0x0F00) >> 8) | ((qd & 0xF000) >> 4) | ((h & 0x04) << 2) | ((h & 0x08) << 9);
+        n <<= 16;
+        n |= ((qd & 0x0F) | ((qd & 0xF0) << 4)) | ((h & 0x01) << 4) | ((h & 0x02) << 11);
+        return n;
+    }
+
     template <typename TargetType>
     static HOST_AND_DEVICE void DequantizeQ5_B64T1(TargetType *target,
         const BlockQ5_B64T1 *block)
@@ -477,6 +502,15 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     // Q4_B32T1
     ////////////////////////////////////////////////////////////////////////////
+
+    static HOST_AND_DEVICE FORCE_INLINE int GetInt4(const BlockQ4_B32T1 &block, int start_offset)
+    {
+        const uint16_t qd = *(const uint16_t*)(block.data + start_offset / 2);
+        int n = ((qd & 0x0F00) >> 8) | ((qd & 0xF000) >> 4);
+        n <<= 16;
+        n |= ((qd & 0x0F) | ((qd & 0xF0) << 4));
+        return n;
+    }
 
     template <typename TargetType>
     static HOST_AND_DEVICE void DequantizeQ4_B32T1(TargetType *target,
@@ -677,6 +711,26 @@ public:
     // Q4_B64T1 (4-bit quantization with block size 64)
     ////////////////////////////////////////////////////////////////////////////
 
+    static HOST_AND_DEVICE FORCE_INLINE int GetInt4(const BlockQ4_B64T1 &block, int start_offset)
+    {
+        const uint16_t qd = *(const uint16_t*)(block.data + start_offset / 2);
+        int n = ((qd & 0x0F00) >> 8) | ((qd & 0xF000) >> 4);
+        n <<= 16;
+        n |= ((qd & 0x0F) | ((qd & 0xF0) << 4));
+        return n;
+    }
+
+    static HOST_AND_DEVICE FORCE_INLINE uint32_t GetInt4N8(const BlockQ4_B64T1 &block, int start_offset)
+    {
+        const uint16_t qd = *(const uint16_t*)(block.data + start_offset / 4);
+        const uint16_t qd2 = *(const uint16_t*)(block.data + start_offset / 4 + 2);
+        uint32_t n = ((qd & 0x0F00) >> 8) | ((qd & 0xF000) >> 4)
+            | ((qd2 & 0x0F00) >> 4) | (qd2 & 0xF000);
+        n <<= 16;
+        n |= ((qd & 0x0F) | ((qd & 0xF0) << 4) | ((qd2 & 0x0F) << 4) | ((qd2 & 0xF0) << 8));
+        return n;
+    }
+
     template <typename TargetType>
     static HOST_AND_DEVICE void DequantizeQ4_B64T1(TargetType *target,
         const BlockQ4_B64T1 *block)
@@ -751,6 +805,19 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     // Q3H_B64T1 (3.5-bit quantization with block size 64)
     ////////////////////////////////////////////////////////////////////////////
+
+    static HOST_AND_DEVICE FORCE_INLINE int GetInt4(const BlockQ3H_B64T1 &block, int start_offset)
+    {
+        const int group_idx = start_offset / 4;
+        const uint8_t u8 = block.data[group_idx];
+        const uint8_t m8 = block.data_m[group_idx / 2] >> (group_idx % 2 * 4);
+        const uint8_t h8 = block.data_h[group_idx / 4] >> (group_idx % 4 * 2);
+        const int q0 = ((u8 & 0x0F)) | ((m8 & 0x03) << 4) | ((h8 & 0x01) << 6);
+        const int q1 = ((u8 & 0xF0) >> 4) | ((m8 & 0x0C) << 2) | ((h8 & 0x02) << 5);
+
+        int n = (q0 % 11) | ((q0 / 11) << 8) | ((q1 % 11) << 16) | ((q1 / 11) << 24);
+        return n;
+    }
 
     template <typename TargetType>
     static HOST_AND_DEVICE void DequantizeQ3H_B64T1(TargetType *target,

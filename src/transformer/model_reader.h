@@ -20,6 +20,7 @@ using sslib::JsonParser;
 using sslib::JsonDoc;
 using sslib::JsonObject;
 using sslib::JsonArray;
+using sslib::TaskMonitor;
 
 class ModelReader
 {
@@ -166,6 +167,8 @@ protected:
     int Pickle_ReadTensor(TransformerModel &model, TransformerContext &ctx,
         IBinaryStream &strm, PickleReader &reader, int file_idx,
         const map<string, StrAndCount> &section_to_tensor_name_map,
+        const ModelPartition &model_partition,
+        const PtrVector<NetworkBuilder> &builder_list,
         bool is_study_mode);
 
     static void Pickle_HandleSectionName(map<string, StrAndCount> &section_to_tensor_name_map,
@@ -183,7 +186,7 @@ protected:
     static bool Safetensors_ReadHeader(TransformerModel &model,
         IBinaryStream &strm, JsonParser &jparser);
     bool Safetensors_ReadTensors(TransformerModel &model, TransformerContext &ctx,
-        IBinaryStream &strm, int base_idx);
+        IBinaryStream &strm, int base_idx, TaskMonitor &tm);
 
     ////////////////////////////////////////////////////////////////////////////
     // llama2.c format
