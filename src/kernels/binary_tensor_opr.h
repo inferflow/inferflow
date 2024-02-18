@@ -77,6 +77,46 @@ __global__ void ElementwiseAdd_Alg3_Half_Kernel(DataType *C, DataType const *A, 
     }
 }
 
+template <typename DataType>
+__global__ void AddByRowIdx_Kernel(DataType *B, DataType const *A, int N, int M,
+    int tile_len, const int *idx_data, const half *weights)
+{
+    int c_row = threadIdx.y + blockIdx.y * blockDim.y;
+    int start_col = (threadIdx.x + blockIdx.x * blockDim.x) * tile_len;
+    int end_col = min(start_col + tile_len, N);
+
+    if (c_row >= M || start_col >= end_col) {
+        return;
+    }
+
+    if (tile_len == 4 && start_col + tile_len == end_col)
+    {
+        int offset1 = c_row * N + start_col;
+        int offset2 = idx_data[c_row] * N + start_col;
+        half w = weights == nullptr ? (half)1.0f : weights[c_row];
+        float2 v1 = *(float2*)(A + offset1);
+        float2 v2 = *(float2*)(B + offset2);
+
+        const half *ha = (const half*)&v1;
+        half *hb = (half*)&v2;
+        hb[0] = __hfma(ha[0], w, hb[0]);
+        hb[1] = __hfma(ha[1], w, hb[1]);
+        hb[2] = __hfma(ha[2], w, hb[2]);
+        hb[3] = __hfma(ha[3], w, hb[3]);
+        *(float2*)(B + offset2) = v2;
+        return;
+    }
+
+#   pragma unroll
+    for (int col = start_col; col < end_col; col++)
+    {
+        half w = nullptr ? (half)1.0f : weights[c_row];
+        int offset1 = c_row * N + col;
+        int offset2 = idx_data[c_row] * N + col;
+        B[offset1] = __hfma(A[offset2], w, B[offset1]);
+    }
+}
+
 template <typename AType, typename BType, typename CType>
 __global__ void ElementwiseMul_Alg1_Kernel(int M1, int M2, int N,
     AType const *A, BType const *B, CType *C)

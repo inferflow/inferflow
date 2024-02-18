@@ -1513,6 +1513,36 @@ bool TensorOpr::Mul(DeviceTensor &C, const DeviceTensor &A,
     return true;
 }
 
+bool TensorOpr::AddByRowIndex(DeviceTensor &B, const DeviceTensor &A,
+    const DeviceTensor &idx_tensor, const DeviceTensor *weight_tensor)
+{
+    int cx = A.Columns(), cy = A.Rows();
+    int tile_len = 4;
+    dim3 block, grid;
+    block.y = cy >= 32 ? 8 : (cy >= 16 ? 4 : (cy >= 8 ? 2 : 1));
+    block.x = 128 / block.y;
+    grid.x = (cx / tile_len + block.x - 1) / block.x;
+    grid.y = (cy + block.y - 1) / block.y;
+
+    if (A.data_type == ElementType::F16)
+    {
+        const half *a_data = A.data_f16();
+        half *b_data = B.data_f16();
+        const int *idx_data = (const int*)idx_tensor.data;
+        const half *weights = weight_tensor != nullptr ? weight_tensor->data_f16() : nullptr;
+
+        AddByRowIdx_Kernel<<<grid, block>>>(b_data, a_data,
+            cx, cy, tile_len, idx_data, weights);
+    }
+    else
+    {
+        LogError("Not implemented yet.");
+    }
+
+    bool ret = CudaUtil::DeviceSynchronize("AddByRowIndex");
+    return ret;
+}
+
 //static
 bool TensorOpr::IsCompatible_AB(const DeviceTensor &A, const DeviceTensor &B,
     bool be_transpose)

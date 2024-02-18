@@ -1,4 +1,5 @@
 #include "inference_worker.h"
+#include <sstream>
 #include "sslib/log.h"
 #include "tensor/tensor_util.h"
 #include "tensor/device_tensor_util.h"
@@ -190,6 +191,7 @@ bool GpuInferenceWorker::Init(int id, int worker_num, int group_id, int group_nu
             max_tensor_size = max(max_tensor_size, sub_max);
         }
 
+        //LogKeyInfo("max_tensor_size: %d", max_tensor_size);
         dequant_tensor_ex_.tensor = &dequant_tensor_;
         dequant_tensor_.New(ElementType::F16, max_tensor_size);
         //LogKeyInfo("Worker %d: Building the dequant layer...", id_);
@@ -802,7 +804,7 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer(int layer_idx,
     AttentionOutput self_att_out = ProcessGpuLayer_Attention(layer_idx,
         *self_attn, layer_input, nullptr, heap_idx, is_encoder_);
     if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
-        UpdatePerfStat(perf_base + 500, tm);
+        UpdatePerfStat(perf_base + 300, tm);
     }
     Macro_RetIf(nullptr, self_att_out.output == nullptr);
 
@@ -816,20 +818,28 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer(int layer_idx,
     {
         //DeviceTensor *ff_input = CreateLocalTensor(*layer_input, true, heap_idx);
         TensorOpr::Add(*self_att_out.output, *layer_input, *self_att_out.output);
-        if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_) {
-            PrintTensor(self_att_out.output, 8, 30, 8, "self_att_out (10501):\n", layer_idx);
+        if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_)
+        {
+            const char *title = "self_attn_out_with_residual_added (10501):\n";
+            PrintTensor(self_att_out.output, 8, 30, 8, title, layer_idx);
         }
     }
 
+    DeviceTensor *residual = self_att_out.output;
     if (self_attn->post_norm.tensor != nullptr)
     {
         DeviceTensor *post_norm = CreateLocalTensor(*self_att_out.output, true, heap_idx);
         TensorOpr::LayerNormalization(*post_norm, *self_att_out.output, model_spec.norm_alg,
             self_attn->post_norm.tensor, self_attn->post_norm_b.tensor);
         self_att_out.output = post_norm;
+        if (model_spec.is_attn_post_as_residual) {
+            residual = post_norm;
+        }
 
-        if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_) {
-            PrintTensor(self_att_out.output, 8, 8, 8, "self_att_out (10502):\n", layer_idx);
+        if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_)
+        {
+            const char *title = "self_attn_out_after_post_norm (10502):\n";
+            PrintTensor(self_att_out.output, 8, 8, 8, title, layer_idx);
         }
     }
 
@@ -843,7 +853,7 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer(int layer_idx,
             decoder_layer->cross_attn, self_att_out.output, &input_kv,
             heap_idx, is_encoder_);
         if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
-            UpdatePerfStat(perf_base + 600, tm);
+            UpdatePerfStat(perf_base + 500, tm);
         }
         Macro_RetIf(nullptr, cross_att_out.output == nullptr);
 
@@ -858,14 +868,25 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer(int layer_idx,
         }
 
         att_out = cross_att_out.output;
+        residual = cross_att_out.output;
     }
 
     /// feed forward
     tm.Start();
     DeviceTensor *ff_in = model_spec.is_parallel_attn ? self_att_out.pre_norm
         : (model_spec.mlp_attn_share_input ? (DeviceTensor*)layer_input : att_out);
-    DeviceTensor *ff_out = ProcessGpuLayer_FeedForward(
-        layer_idx, *ffn, ff_in, heap_idx, is_encoder_);
+    bool is_moe = decoder_layer != nullptr && decoder_layer->moe.gate.tensor != nullptr;
+    DeviceTensor *ff_out = nullptr;
+    if (!is_encoder_ && is_moe)
+    {
+        const auto &moe_layer = decoder_layer->moe;
+        ff_out = ProcessGpuLayer_Moe(layer_idx, moe_layer, ff_in, heap_idx, is_encoder_);
+    }
+    else
+    {
+        ff_out = ProcessGpuLayer_FeedForward(layer_idx, *ffn, ff_in, heap_idx, is_encoder_);
+    }
+
     if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
         UpdatePerfStat(perf_base + 700, tm);
     }
@@ -879,7 +900,7 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer(int layer_idx,
     DeviceTensor *layer_out = CreateLocalTensor(*layer_input, false, heap_idx);
     Macro_RetIf(nullptr, layer_out == nullptr);
 
-    TensorOpr::Add(*layer_out, *ff_out, *att_out);
+    TensorOpr::Add(*layer_out, *ff_out, *residual);
     if (config_->debug.is_study_mode && (layer_idx == layer_idx_for_study_ || layer_idx >= 29)) {
         PrintTensor(layer_out, 8, 8, 8, "layer_out (10750):\n", layer_idx);
     }
@@ -948,7 +969,7 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
     auto data_type = input_q->data_type;
     int layer_base_phase = (layer_idx + 1) * 100;
     bool is_cross_attn = input_kv != nullptr;
-    int perf_base = (layer_idx + 1) * 10000 + (is_cross_attn ? 600 : 500);
+    int perf_base = (layer_idx + 1) * 10000 + (is_cross_attn ? 500 : 300);
 
     AttentionParams params;
     params.is_cross_attn = is_cross_attn;
@@ -1370,7 +1391,7 @@ bool GpuInferenceWorker::Attention_CalculateCurQKV(CurQKV &cur_qkv, int layer_id
 
     bool is_cross_attention = input_kv != nullptr;
     //int layer_base_phase = (layer_idx + 1) * 100;
-    int perf_base = (layer_idx + 1) * 10000 + (is_cross_attention ? 600 : 500);
+    int perf_base = (layer_idx + 1) * 10000 + (is_cross_attention ? 500 : 300);
     const DeviceTensor *input_kv_tensor = input_kv != nullptr ? input_kv->tensor : input_q;
 
     TaskMonitor tm;
@@ -1651,8 +1672,8 @@ DeviceTensor* GpuInferenceWorker::CalculateProductKQ(const CurQKV &cur_qkv,
 
         if (config_->debug.show_tensors && layer_idx == layer_idx_for_study_)
         {
-            PrintTensor(&sub_q, 8, 6, 3, "sub_q (10231):\n", layer_idx);
-            PrintTensor(k_with_ctx_ptr, 8, 3, 6, "k_with_ctx (10232):\n", layer_idx);
+            //PrintTensor(&sub_q, 8, 6, 3, "sub_q (10231):\n", layer_idx);
+            //PrintTensor(k_with_ctx_ptr, 8, 3, 6, "k_with_ctx (10232):\n", layer_idx);
         }
 
         kq = CreateLocalTensor(ElementType::F16, q_prefix_len + q_token_num,
@@ -1666,7 +1687,7 @@ DeviceTensor* GpuInferenceWorker::CalculateProductKQ(const CurQKV &cur_qkv,
 
 DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_FeedForward(int layer_idx,
     const StdDeviceNetwork::FeedForwardLayer &layer, DeviceTensor *input_tensor,
-    int heap_idx, bool is_encoder)
+    int heap_idx, bool is_encoder, bool enable_tensor_printing)
 {
     (void)is_encoder;
     bool ret = true;
@@ -1679,6 +1700,8 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_FeedForward(int layer_idx,
     int token_num = input_tensor->ne[1];
     int layer_base_phase = (layer_idx + 1) * 100;
     int perf_base = (layer_idx + 1) * 10000;
+    enable_tensor_printing = enable_tensor_printing && config_->debug.is_study_mode
+        && config_->debug.show_tensors;
 
     bool is_b_column_major = !config_ex_->is_gpu_tensor_row_major;
 
@@ -1696,28 +1719,10 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_FeedForward(int layer_idx,
     if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
         UpdatePerfStat(perf_base + 710, tm);
     }
-    /*DeviceTensor *norm1 = CreateLocalTensor(*input_tensor, true, heap_idx);
-    TensorOpr::LayerNormalization(*norm1, *input_tensor, model_spec.norm_alg);
-
-    if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
-        UpdatePerfStat(perf_base + 710, tm);
-    }
-
-    tm.Start();
-    DeviceTensor *norm2 = CreateLocalTensor(*norm1, true, heap_idx);
-    bool ret = TensorOpr::Mul(*norm2, *norm1, *layer.pre_norm.tensor);
-    if (ret && layer.pre_norm_b.tensor != nullptr) {
-        ret = TensorOpr::Add(*norm2, *norm2, *layer.pre_norm_b.tensor);
-    }
-    Macro_RetIf(nullptr, !ret);
-
-    if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
-        UpdatePerfStat(perf_base + 720, tm);
-    }*/
 
     //PrintTensor(layer.ffn_norm.tensor, 8, 8, 8, "ffn_norm:\n");
     //PrintTensor(layer.ffn_norm_b.tensor, 8, 8, 8, "ffn_norm_b:\n");
-    if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_) {
+    if (enable_tensor_printing && layer_idx == layer_idx_for_study_) {
         PrintTensor(norm2, 8, 30, 8, "norm2 (10302):\n");
     }
 
@@ -1742,7 +1747,7 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_FeedForward(int layer_idx,
     ret = MatrixMultiplicationEx(*t1, *norm2, *norm_quant, layer.w1,
         is_b_column_major, layer.w1_b.tensor);
 
-    if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_) {
+    if (enable_tensor_printing && layer_idx == layer_idx_for_study_) {
         PrintTensor(t1, 8, 8, 8, "t1 (10311):\n");
     }
     Macro_RetIf(nullptr, !ret);
@@ -1756,7 +1761,7 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_FeedForward(int layer_idx,
     tm.Start();
     DeviceTensor *act = CreateActivationTarget(*t1, model_spec.activation_fn, true, heap_idx);
     TensorOpr::Activation(*act, *t1, model_spec.activation_fn);
-    if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_) {
+    if (enable_tensor_printing && layer_idx == layer_idx_for_study_) {
         PrintTensor(act, 8, 8, 8, "act (10321):\n");
     }
     if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
@@ -1777,7 +1782,9 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_FeedForward(int layer_idx,
         if (layer.w3_b.tensor != nullptr) {
             TensorOpr::Add(*t2, *t2, *layer.w3_b.tensor);
         }
-        //PrintTensor(t2, 8, 8, 8, "t2 (10311):\n");
+        if (enable_tensor_printing && layer_idx == layer_idx_for_study_) {
+            PrintTensor(t2, 8, 8, 8, "t2 (10311):\n");
+        }
         Macro_RetIf(nullptr, !ret);
 
         if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
@@ -1791,7 +1798,9 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_FeedForward(int layer_idx,
         tm.Start();
         t3 = CreateLocalTensor(*t1, true, heap_idx);
         TensorOpr::Mul(*t3, *act, *t2);
-        //PrintTensor(t3, 8, 8, 8, "t3 (10322):\n");
+        if (enable_tensor_printing && layer_idx == layer_idx_for_study_) {
+            PrintTensor(t3, 8, 8, 8, "t3 (10322):\n");
+        }
         if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
             UpdatePerfStat(perf_base + 760, tm);
         }
@@ -1819,9 +1828,13 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_FeedForward(int layer_idx,
         cx_new, token_num, 0, true, heap_idx);
     DeviceTensor *bias = is_by_layer_ ? layer.w2_b.tensor : nullptr;
     ret = MatrixMultiplicationEx(*out, *t3, *t3_quant, layer.w2, is_b_column_major, bias);
-    if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_) {
-        //PrintTensor(layer.w2.tensor, 8, 8, 8, "w2:\n");
-        //PrintTensor(out, 8, 8, 8, "ffn_out (10323):\n");
+    if (enable_tensor_printing && layer_idx == layer_idx_for_study_)
+    {
+        PrintTensor(layer.w2.tensor, 8, 8, 8, "w2:\n");
+        if (bias != nullptr) {
+            PrintTensor(bias, 8, 8, 8, "w2_b:\n");
+        }
+        PrintTensor(out, 8, 8, 8, "ffn_out (10323):\n");
     }
     if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
         UpdatePerfStat(perf_base + 780, tm);
@@ -1849,6 +1862,243 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_FeedForward(int layer_idx,
 
     Macro_RetIf(nullptr, !ret);
     return out;
+}
+
+struct ExpertRow
+{
+    int id = 0;
+    int order = 0;
+    inferflow_fp16 score = (inferflow_fp16)0.0f;
+
+    ExpertRow(int p_id = 0, int p_order = 0, inferflow_fp16 p_score = (inferflow_fp16)0.0f)
+    {
+        this->id = p_id;
+        this->order = p_order;
+        this->score = p_score;
+    }
+};
+
+struct ExpertState
+{
+    vector<ExpertRow> rows;
+};
+
+DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_Moe(int layer_idx,
+    const StdDeviceNetwork::FfnMoeLayer &layer, DeviceTensor *input_tensor,
+    int heap_idx, bool is_encoder)
+{
+    const auto &model_spec = model_ptr_->spec;
+    const auto &hparams = model_spec.hyper_params;
+    const DeviceTensor &gate_tensor = *layer.gate.tensor;
+    int token_num = input_tensor->ne[1];
+    int expert_num = hparams.in_use_experts;
+    int moe_top_k = hparams.moe_top_k;
+    int perf_base = (layer_idx + 1) * 10000 + 600;
+    bool is_b_column_major = !config_ex_->is_gpu_tensor_row_major;
+
+    if (moe_top_k > RowItemForMoe::MAX_SIZE)
+    {
+        LogError("moe_top_k > %d is not supported so far.", RowItemForMoe::MAX_SIZE);
+        return nullptr;
+    }
+
+    TaskMonitor tm;
+    tm.Start();
+    DeviceTensor *input_quant = input_tensor;
+    bool use_full_quant_gemv = GetUseFullQuantGemv(*input_tensor, gate_tensor);
+    if (use_full_quant_gemv)
+    {
+        input_quant = CreateLocalTensor(ElementType::Q8_B32T2,
+            input_tensor->ne[0], input_tensor->ne[1], 0, true, 0);
+        TensorOpr::Quantize(*input_quant, *input_tensor);
+    }
+
+    DeviceTensor *router_logits = CreateLocalTensor(ElementType::F16,
+        gate_tensor.ne[1], token_num, 0, true, heap_idx);
+    bool ret = MatrixMultiplicationEx(*router_logits, *input_tensor, *input_quant,
+        layer.gate, is_b_column_major, layer.gate_b.tensor);
+
+    if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
+        UpdatePerfStat(perf_base + 10, tm);
+    }
+
+    if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_)
+    {
+        PrintTensor(input_tensor, 8, 8, 8, "moe_input:\n");
+        PrintTensor(router_logits, 64, 8, 8, "router_logits:\n");
+    }
+    Macro_RetIf(nullptr, !ret);
+
+    tm.Start();
+    float neg_infinity = -std::numeric_limits<float>::infinity();
+    TensorOpr::SoftMax(*router_logits, -1, neg_infinity, 1.0f, &soft_max_aux_tensor_);
+
+    if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
+        UpdatePerfStat(perf_base + 20, tm);
+    }
+
+    HostTensor host_router_logits;
+    router_logits->CopyToHost(host_router_logits);
+    //HostTensorOpr::SoftMax(host_router_logits);
+
+    if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_)
+    {
+        PrintTensor(router_logits, 64, 8, 8, "router_logits_softmax:\n");
+    }
+
+    if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
+        UpdatePerfStat(perf_base + 30, tm);
+    }
+
+    tm.Start();
+    vector<RowItemForMoe> row_items;
+    HostTensorOpr::BuildRowsForMoE(row_items, host_router_logits,
+        moe_top_k, hparams.moe_norm_top_k_prob);
+
+    if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
+        UpdatePerfStat(perf_base + 40, tm);
+    }
+
+    //LogKeyInfo("===== row_items");
+    //for (const auto &row_item : row_items)
+    //{
+    //    stringstream ss;
+    //    for (int idx = 0; idx < row_item.size; idx++)
+    //    {
+    //        const auto &exp = row_item.arr[idx];
+    //        if (idx > 0) {
+    //            ss << " | ";
+    //        }
+    //        ss << "(" << exp.id << ", " << exp.weight << ")";
+    //    }
+    //    LogKeyInfo("%s", ss.str().c_str());
+    //}
+
+    tm.Start();
+    vector<ExpertState> expert_states(expert_num);
+    for (int row_idx = 0; row_idx < token_num; row_idx++)
+    {
+        const auto &item = row_items[row_idx];
+        for (int order = 0; order < item.size; order++)
+        {
+            int expert_id = item.arr[order].id;
+            auto &state = expert_states[expert_id];
+            ExpertRow er(row_idx, order, item.arr[order].weight);
+            state.rows.push_back(er);
+        }
+    }
+
+    if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
+        UpdatePerfStat(perf_base + 50, tm);
+    }
+
+    DeviceTensor *out_tensor = nullptr;
+    /*if (hparams.has_shared_expert)
+    {
+        out_tensor = ProcessGpuLayer_FeedForward(layer_idx, layer.shared_expert,
+            input_tensor, heap_idx, is_encoder, false);
+    }
+    else*/
+    {
+        out_tensor = CreateLocalTensor(*input_tensor, false, heap_idx);
+        out_tensor->AssignZero();
+    }
+
+    tm.Start();
+    vector<int> idx_list;
+    DeviceTensor *partial_input = CreateLocalTensor(*input_tensor, true, heap_idx);
+    DeviceTensor *weight_tensor = CreateLocalTensor(ElementType::F16,
+        1, token_num, 0, true, heap_idx);
+    DeviceTensor *idx_tensor = CreateLocalTensor(ElementType::I32,
+        token_num, 0, 0, true, heap_idx);
+    for (int expert_idx = 0; expert_idx < expert_num; expert_idx++)
+    {
+        const auto &state = expert_states[expert_idx];
+        const auto *expert_layer = layer.experts[expert_idx];
+        if (state.rows.empty()) {
+            continue;
+        }
+
+        idx_list.clear();
+        int state_rows = (int)state.rows.size();
+        for (int row_idx = 0; row_idx < state_rows; row_idx++)
+        {
+            const auto &row = state.rows[row_idx];
+            aux_buffer_.Set(row_idx, row.score);
+            idx_list.push_back(row.id);
+
+            const void *src_data = input_tensor->RowData(row.id);
+            void *target_data = partial_input->RowData(row_idx);
+            int bytes = (int)TensorCommon::ByteCount(input_tensor->data_type, input_tensor->ne[0]);
+            CudaUtil::DeviceToDeviceMemcpy(target_data, src_data, bytes);
+        }
+
+        partial_input->SetStructure(input_tensor->ne[0], state_rows, 0);
+
+        int bytes = (int)TensorCommon::ByteCount(ElementType::F16, state_rows);
+        CudaUtil::HostToDeviceMemcpy(weight_tensor->data, aux_buffer_.data(), bytes);
+        weight_tensor->SetStructure(state_rows, 0, 0);
+
+        bytes = (int)TensorCommon::ByteCount(ElementType::I32, state_rows);
+        CudaUtil::HostToDeviceMemcpy(idx_tensor->data, idx_list.data(), bytes);
+        idx_tensor->SetStructure(state_rows, 0, 0);
+
+        if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_)
+        {
+            //stringstream ss;
+            //for (int idx = 0; idx < (int)idx_list.size(); idx++)
+            //{
+            //    int row_idx = idx_list[idx];
+            //    int order = state.rows[idx].order;
+            //    float w = state.rows[idx].score;
+            //    ss << row_idx << " (" << order << ", " << w << ") ";
+            //}
+            //LogKeyInfo("expert_idx: %d, state_rows: %d, idx and weight list: %s",
+            //    expert_idx, state_rows, ss.str().c_str());
+            PrintTensor(weight_tensor, 8, 8, 8, "===== weight_tensor:\n");
+        }
+
+        bool enable_tensor_printing = expert_idx == 2; //false
+        DeviceTensor *expert_out_tensor = ProcessGpuLayer_FeedForward(layer_idx,
+            *expert_layer, partial_input, heap_idx, is_encoder, enable_tensor_printing);
+
+        if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_)
+        {
+            PrintTensor(partial_input, 8, 8, 8, "partial_input:\n");
+            PrintTensor(expert_out_tensor, 8, 8, 8, "expert_out_tensor:\n");
+        }
+
+        TensorOpr::AddByRowIndex(*out_tensor, *expert_out_tensor, *idx_tensor, weight_tensor);
+
+        if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_)
+        {
+            PrintTensor(out_tensor, 8, 8, 8, "moe_out_tensor.partial:\n");
+        }
+    } //for each expert
+
+    if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
+        UpdatePerfStat(perf_base + 70, tm);
+    }
+
+    tm.Start();
+    if (hparams.has_shared_expert)
+    {
+        const auto *shared_out_tensor = ProcessGpuLayer_FeedForward(layer_idx,
+            layer.shared_expert, input_tensor, heap_idx, is_encoder);
+        TensorOpr::Add(*out_tensor, *out_tensor, *shared_out_tensor);
+    }
+
+    if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_) {
+        UpdatePerfStat(perf_base + 80, tm);
+    }
+
+    if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_)
+    {
+        //LogKeyInfo("Printing moe_out_tensor...");
+        PrintTensor(out_tensor, 8, 8, 8, "moe_out_tensor:\n");
+    }
+
+    return out_tensor;
 }
 
 DeviceTensor* GpuInferenceWorker::DistributeAndMergeTensors(const DeviceTensor *tensor,
@@ -2406,10 +2656,26 @@ bool GpuInferenceWorker::GetUseGemv(const DeviceTensor &input_tensor) const
 bool GpuInferenceWorker::GetUseFullQuantGemv(const DeviceTensor &input_tensor,
     const DeviceTensor &weight_tensor) const
 {
+    bool is_acceptable_weight_type = false;
+    switch (weight_tensor.data_type)
+    {
+    case ElementType::Q8_B32T2:
+    case ElementType::Q6_B64T1:
+    case ElementType::Q5_B64T1:
+    case ElementType::Q4_B32T1A:
+    case ElementType::Q4_B32T1B:
+    case ElementType::Q4_B64T1:
+    case ElementType::Q3H_B64T1:
+        is_acceptable_weight_type = true;
+        break;
+    default:
+        break;
+    }
+
     bool use_gemv = GetUseGemv(input_tensor);
     return use_gemv && config_ex_->enable_full_quant_gemv
         //&& (input_tensor.ne[0] > 1500 || weight_tensor.ne[1] > 1500)
-        && weight_tensor.data_type == ElementType::Q8_B32T2;
+        && is_acceptable_weight_type;
 }
 
 TRANSFORMER_END

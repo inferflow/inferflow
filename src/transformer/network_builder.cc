@@ -43,6 +43,19 @@ bool NetworkBuilder::Init(const InferenceConfig &config,
 
     BuildAttnTensorIdMap(attn_tensor_id_map_);
     BuildFfnTensorIdMap(ffn_tensor_id_map_);
+    BuildMoeTensorIdMap(moe_tensor_id_map_);
+    return true;
+}
+
+bool NetworkBuilder::Init(NetworkBuilder &rhs)
+{
+    config_ = rhs.config_;
+    config_ex_ = rhs.config_ex_;
+    context_ = rhs.context_;
+
+    BuildAttnTensorIdMap(attn_tensor_id_map_);
+    BuildFfnTensorIdMap(ffn_tensor_id_map_);
+    BuildMoeTensorIdMap(moe_tensor_id_map_);
     return true;
 }
 
@@ -64,6 +77,12 @@ bool NetworkBuilder::InitNetworkStructure(StdNetwork &net, const ModelSpec &spec
     {
         StdHostNetwork::DecoderLayer *layer_ptr = new StdHostNetwork::DecoderLayer;
         host_net.decoder_layers.push_back(layer_ptr);
+
+        for (int expert_id = 0; expert_id < spec.hyper_params.experts; expert_id++)
+        {
+            auto *expert_ptr = new StdHostNetwork::FeedForwardLayer;
+            layer_ptr->moe.experts.push_back(expert_ptr);
+        }
     }
 
     //BuildHostTensorMap(host_net);
@@ -181,6 +200,15 @@ bool NetworkBuilder::InitDeviceNetStructure(StdNetwork &net, const ModelSpec &sp
                 BuildLayerTensorMap(gpu_decoder_layer->self_attn);
                 BuildLayerTensorMap(gpu_decoder_layer->cross_attn);
                 BuildLayerTensorMap(gpu_decoder_layer->ffn);
+                BuildLayerTensorMap(gpu_decoder_layer->moe);
+
+                for (int expert_id = 0; expert_id < spec.hyper_params.experts; expert_id++)
+                {
+                    auto *expert_ptr = new StdDeviceNetwork::FeedForwardLayer;
+                    BuildLayerTensorMap(*expert_ptr);
+                    gpu_decoder_layer->moe.experts.push_back(expert_ptr);
+                }
+
                 device_net.decoder_layers.push_back(gpu_decoder_layer);
             }
         }
@@ -218,6 +246,7 @@ bool NetworkBuilder::InitDeviceNetStructure(StdNetwork &net, const ModelSpec &sp
 }
 
 //static
+// todo: add encoder support
 bool NetworkBuilder::ParseTensorName(TensorNameInfo &tni, const string &tensor_name,
     const StdDeviceNetwork &device_net, const ModelSpec &spec)
 {
@@ -240,6 +269,40 @@ bool NetworkBuilder::ParseTensorName(TensorNameInfo &tni, const string &tensor_n
     }
 
     str = tensor_name.substr(pos + 1);
+    const char *moe_prefix = "moe.shared_expert.";
+    int moe_prefix_len = (int)strlen(moe_prefix);
+    if ((int)str.size() > moe_prefix_len)
+    {
+        bool is_moe = strncasecmp(str.c_str(), moe_prefix, moe_prefix_len) == 0;
+        if (is_moe)
+        {
+            tni.is_shared_expert = true;
+            str = "feed_forward." + str.substr(moe_prefix_len);
+        }
+    }
+
+    moe_prefix = "moe.expert.";
+    moe_prefix_len = (int)strlen(moe_prefix);
+    tni.expert_id = -1;
+    if ((int)str.size() > moe_prefix_len && !tni.is_shared_expert)
+    {
+        bool is_moe = strncasecmp(str.c_str(), moe_prefix, moe_prefix_len) == 0;
+        if (is_moe)
+        {
+            pos = str.find(".", moe_prefix_len);
+            if (pos == string::npos) {
+                return false;
+            }
+
+            string expert_id_str = str.substr(moe_prefix_len, pos - moe_prefix_len);
+            tni.expert_id = atoi(expert_id_str.c_str());
+
+            if (tni.expert_id >= 0) {
+                str = "feed_forward." + str.substr(pos + 1);
+            }
+        }
+    }
+
     auto iter_find = device_net.tensor_map.find(str);
     if (iter_find == device_net.tensor_map.end()) {
         return false;
@@ -272,8 +335,22 @@ bool NetworkBuilder::BuildDeviceTensor(StdDeviceNetwork &device_net,
         sub_layer = &target_layer->ffn;
         tensor_id_map = &ffn_tensor_id_map_;
         break;
+    case LayerType::MOE:
+        sub_layer = &target_layer->moe;
+        tensor_id_map = &moe_tensor_id_map_;
+        break;
     default:
         break;
+    }
+
+    int expert_num = (int)target_layer->moe.experts.size();
+    if (tni.expert_id >= 0 && tni.expert_id < expert_num)
+    {
+        sub_layer = target_layer->moe.experts[tni.expert_id];
+    }
+
+    if (tni.is_shared_expert) {
+        sub_layer = &target_layer->moe.shared_expert;
     }
 
     if (sub_layer == nullptr || tensor_id_map == nullptr) {
@@ -291,12 +368,13 @@ bool NetworkBuilder::BuildDeviceTensor(StdDeviceNetwork &device_net,
 
     DeviceTensorBuilder::Task task;
     bool be_trans = false;
-    BuildTask_Std(task, *target_tensor, cpu_tensor, tensor_type, spec, be_trans);
+    BuildTask_Std(task, *target_tensor, cpu_tensor, tni.tensor_id, tensor_type, spec, be_trans);
 
     if (!is_device_tensor_builder_initialized_)
     {
         const auto &hparams = spec.hyper_params;
-        int max_tensor_size = hparams.embd_dims * 6 * hparams.embd_dims;
+        int max_intermediate_size = max(hparams.decoder_intermediate_size, 3 * hparams.embd_dims);
+        int max_tensor_size = hparams.embd_dims * 2 * max_intermediate_size;
         int embd_tensor_size = hparams.embd_dims * max(hparams.vocab_size, hparams.padded_vocab_size);
         int aux_buffer_capacity = max(max_tensor_size, embd_tensor_size);
         int aux_tensor_size = aux_buffer_capacity;
@@ -389,6 +467,9 @@ bool NetworkBuilder::BuildHostNetwork_Std(TransformerModel &model, const ModelSp
 
         sprintf(prefix_buf, "enc.%d.feed_forward", layer_idx);
         SetFeedForwardLayer(layer_ptr->ffn, model, prefix_buf);
+
+        sprintf(prefix_buf, "enc.%d.moe", layer_idx);
+        SetFfnMoeLayer(layer_ptr->moe, model, prefix_buf);
     }
 
     int decoder_cpu_layer_count = is_cpu_only ? hparams.decoder_layers
@@ -408,6 +489,9 @@ bool NetworkBuilder::BuildHostNetwork_Std(TransformerModel &model, const ModelSp
 
         sprintf(prefix_buf, "dec.%d.feed_forward", layer_idx);
         SetFeedForwardLayer(layer_ptr->ffn, model, prefix_buf);
+
+        sprintf(prefix_buf, "dec.%d.moe", layer_idx);
+        SetFfnMoeLayer(layer_ptr->moe, model, prefix_buf);
     }
 
     return true;
@@ -535,6 +619,29 @@ void NetworkBuilder::SetFeedForwardLayer(StdHostNetwork::FeedForwardLayer &layer
     layer.w3 = model.FindHostTensor(buf);
     sprintf(buf, "%s.w3.bias", prefix);
     layer.w3_b = model.FindHostTensor(buf);
+}
+
+void NetworkBuilder::SetFfnMoeLayer(StdHostNetwork::FfnMoeLayer &layer,
+    const TransformerModel &model, const char *prefix)
+{
+    char buf[255], prefix_buf[255];
+    sprintf(buf, "%s.gate.weight", prefix);
+    layer.gate.weight = model.FindHostTensor(buf);
+    sprintf(buf, "%s.gate.bias", prefix);
+    layer.gate.bias = model.FindHostTensor(buf);
+
+    sprintf(prefix_buf, "%s.shared_expert", prefix);
+    SetFeedForwardLayer(layer.shared_expert, model, prefix_buf);
+
+    int expert_num = model.spec.hyper_params.experts;
+    for (int expert_id = 0; expert_id < expert_num; expert_id++)
+    {
+        auto *ffn_layer = new StdHostNetwork::FeedForwardLayer;
+        layer.experts.push_back(ffn_layer);
+
+        sprintf(prefix_buf, "%s.expert.%d", prefix, expert_id);
+        SetFeedForwardLayer(*ffn_layer, model, prefix_buf);
+    }
 }
 
 #if defined(USE_CUDA)
@@ -1297,6 +1404,13 @@ void NetworkBuilder::BuildFfnTensorIdMap(map<LayerTensorId, int> &tensor_id_map)
     tensor_id_map[LayerTensorId::W2] = 5;
 }
 
+void NetworkBuilder::BuildMoeTensorIdMap(map<LayerTensorId, int> &tensor_id_map)
+{
+    tensor_id_map.clear();
+
+    tensor_id_map[LayerTensorId::MOE_GATE] = 0;
+}
+
 #if defined(USE_CUDA)
 
 bool NetworkBuilder::AddLayerTasks_Std(DeviceTensorBuilder &builder,
@@ -1355,7 +1469,8 @@ bool NetworkBuilder::AddLayerTasks_Std(DeviceTensorBuilder &builder,
 
         auto &target_tensor = iter_gpu->second;
         task.id = 10000 * (layer_id + 1) + (int)tensor_id;
-        BuildTask_Std(task, *target_tensor, *cpu_tensor, tensor_type, model_spec, be_trans);
+        BuildTask_Std(task, *target_tensor, *cpu_tensor, tensor_id, tensor_type,
+            model_spec, be_trans);
 
         builder.AddTask(task);
     }
@@ -1418,7 +1533,8 @@ bool NetworkBuilder::AddLayerTasks_Std(DeviceTensorBuilder &builder,
 
         auto &target_tensor = iter_gpu->second;
         task.id = 10000 * (layer_id + 1) + (int)tensor_id;
-        BuildTask_Std(task, *target_tensor, *cpu_tensor, tensor_type, model_spec, be_trans);
+        BuildTask_Std(task, *target_tensor, *cpu_tensor, tensor_id, tensor_type,
+            model_spec, be_trans);
 
         builder.AddTask(task);
     }
@@ -1428,9 +1544,15 @@ bool NetworkBuilder::AddLayerTasks_Std(DeviceTensorBuilder &builder,
 
 void NetworkBuilder::BuildTask_Std(DeviceTensorBuilder::Task &task,
     DeviceTensorEx &target_tensor, const HostTensor &cpu_tensor,
-    int tensor_type, const ModelSpec &model_spec, bool be_trans)
+    LayerTensorId tensor_id, int tensor_type,
+    const ModelSpec &model_spec, bool be_trans)
 {
     ElementType data_type = model_spec.device_weight_data_type;
+    auto fine_type = model_spec.device_weight_data_types[(int)tensor_id];
+    if (fine_type != ElementType::Auto) {
+        data_type = fine_type;
+    }
+
     ElementType tensor_data_type = data_type;
     if ((int)cpu_tensor.size < model_spec.tensor_quant_threshold
         && TensorCommon::IsQuantType(data_type))
@@ -1610,7 +1732,7 @@ bool NetworkBuilder::CheckHostModel(const TransformerModel &model, bool is_cpu_o
         const auto &layer = *host_net.encoder_layers[layer_id];
 
         ret = ret && CheckModelLayer(layer.self_attn, layer_id, is_encoder, true);
-        ret = ret && CheckModelLayer(layer.ffn, layer_id, is_encoder);
+        ret = ret && CheckModelLayer(layer.ffn, layer_id, is_encoder, FfnLayerType::Std);
         Macro_RetFalseIf(!ret);
     }
 
@@ -1642,7 +1764,7 @@ bool NetworkBuilder::CheckHostModel(const TransformerModel &model, bool is_cpu_o
         if (!is_decoder_only) {
             ret = ret && CheckModelLayer(layer.cross_attn, layer_id, is_encoder, false);
         }
-        ret = ret && CheckModelLayer(layer.ffn, layer_id, is_encoder);
+        ret = ret && CheckModelLayer(layer.ffn, layer_id, is_encoder, FfnLayerType::Std);
         Macro_RetFalseIf(!ret);
     }
 
@@ -1700,7 +1822,7 @@ bool NetworkBuilder::CheckDeviceModel(const StdDeviceNetwork &net,
         const auto &layer = *net.encoder_layers[layer_id];
 
         ret = ret && CheckModelLayer(layer.self_attn, layer_id, is_encoder, true);
-        ret = ret && CheckModelLayer(layer.ffn, layer_id, is_encoder);
+        ret = ret && CheckModelLayer(layer.ffn, layer_id, is_encoder, FfnLayerType::Std);
         Macro_RetFalseIf(!ret);
     }
 
@@ -1729,11 +1851,72 @@ bool NetworkBuilder::CheckDeviceModel(const StdDeviceNetwork &net,
         if (!is_decoder_only) {
             ret = ret && CheckModelLayer(layer.cross_attn, layer_id, is_encoder, false);
         }
-        ret = ret && CheckModelLayer(layer.ffn, layer_id, is_encoder);
+
+        int moe_layer_end = model_spec.hyper_params.moe_layer_end < 0 ? INT32_MAX
+            : model_spec.hyper_params.moe_layer_end;
+        bool is_moe = model_spec.hyper_params.experts > 0
+            && layer_id >= model_spec.hyper_params.moe_layer_start
+            && layer_id < moe_layer_end;
+        if (!is_moe)
+        {
+            ret = ret && CheckModelLayer(layer.ffn, layer_id, is_encoder, FfnLayerType::Std);
+        }
+        else //MOE
+        {
+            if (layer.moe.gate.tensor == nullptr) {
+                LogError("Null MOE gate");
+                return false;
+            }
+
+            if (hparams.has_shared_expert)
+            {
+                ret = CheckModelLayer(layer.moe.shared_expert, layer_id, is_encoder,
+                    FfnLayerType::SharedExpert);
+            }
+
+            for (int expert_id = 0; expert_id < hparams.in_use_experts; expert_id++)
+            {
+                const auto *expert_ptr = layer.moe.experts[expert_id];
+                ret = ret && CheckModelLayer(*expert_ptr, layer_id, is_encoder,
+                    FfnLayerType::Expert, expert_id);
+            }
+        }
+
         Macro_RetFalseIf(!ret);
     }
 
     return true;
+}
+
+//static
+int NetworkBuilder::GetDeviceByLayer(const ModelPartition &mp, int layer_id, bool is_decoder)
+{
+    const auto &assignments = is_decoder ? mp.decoder_assignments : mp.encoder_assignments;
+    for (const auto &la : assignments)
+    {
+        if (layer_id >= la.start_layer && layer_id < la.end_layer)
+        {
+            return (*la.devices)[0];
+        }
+    }
+
+    return -1;
+}
+
+//static
+int NetworkBuilder::GetDeviceGroupIndex(const ModelPartition &mp, int layer_id, bool is_decoder)
+{
+    const auto &assignments = is_decoder ? mp.decoder_assignments : mp.encoder_assignments;
+    for (int la_idx = 0; la_idx < (int)assignments.size(); la_idx++)
+    {
+        const auto &la = assignments[la_idx];
+        if (layer_id >= la.start_layer && layer_id < la.end_layer)
+        {
+            return la_idx;
+        }
+    }
+
+    return 0;
 }
 
 #endif //USE_CUDA
@@ -1762,10 +1945,18 @@ bool NetworkBuilder::CheckModelLayer(const StdHostNetwork::AttentionLayer &layer
 }
 
 bool NetworkBuilder::CheckModelLayer(const StdHostNetwork::FeedForwardLayer &layer,
-    int layer_id, bool is_encoder) const
+    int layer_id, bool is_encoder, FfnLayerType layer_type, int expert_id) const
 {
     char buf[64];
-    sprintf(buf, "ffn layer %d of the %s", layer_id, is_encoder ? "encoder" : "decoder");
+    if (layer_type == FfnLayerType::Expert) {
+        sprintf(buf, "expert %d of layer %d of the %s", expert_id, layer_id, is_encoder ? "encoder" : "decoder");
+    }
+    else if (layer_type == FfnLayerType::SharedExpert) {
+        sprintf(buf, "shared-expert of layer %d of the %s", layer_id, is_encoder ? "encoder" : "decoder");
+    }
+    else {
+        sprintf(buf, "ffn layer %d of the %s", layer_id, is_encoder ? "encoder" : "decoder");
+    }
 
     bool is_null_pre_and_post = layer.pre_norm == nullptr && layer.post_norm == nullptr;
     if (is_null_pre_and_post && layer_id == 0) {
@@ -1806,10 +1997,18 @@ bool NetworkBuilder::CheckModelLayer(const StdDeviceNetwork::AttentionLayer &lay
 }
 
 bool NetworkBuilder::CheckModelLayer(const StdDeviceNetwork::FeedForwardLayer &layer,
-    int layer_id, bool is_encoder) const
+    int layer_id, bool is_encoder, FfnLayerType layer_type, int expert_id) const
 {
     char buf[64];
-    sprintf(buf, "ffn layer %d of the %s", layer_id, is_encoder ? "encoder" : "decoder");
+    if (layer_type == FfnLayerType::Expert) {
+        sprintf(buf, "expert %d of layer %d of the %s", expert_id, layer_id, is_encoder ? "encoder" : "decoder");
+    }
+    else if (layer_type == FfnLayerType::SharedExpert) {
+        sprintf(buf, "shared-expert of layer %d of the %s", layer_id, is_encoder ? "encoder" : "decoder");
+    }
+    else {
+        sprintf(buf, "ffn layer %d of the %s", layer_id, is_encoder ? "encoder" : "decoder");
+    }
 
     bool is_null_pre_and_post = layer.pre_norm.tensor == nullptr
         && layer.post_norm.tensor == nullptr;
@@ -2043,6 +2242,16 @@ void NetworkBuilder::BuildLayerTensorMap(StdDeviceNetwork::FeedForwardLayer &lay
     tensor_map[LayerTensorId::W3_B] = &layer.w3_b;
     tensor_map[LayerTensorId::W1N3] = &layer.w3;
     tensor_map[LayerTensorId::W1N3_B] = &layer.w3_b;
+}
+
+//static
+void NetworkBuilder::BuildLayerTensorMap(StdDeviceNetwork::FfnMoeLayer &layer)
+{
+    auto &tensor_map = layer.tensor_map;
+    tensor_map[LayerTensorId::MOE_GATE] = &layer.gate;
+    tensor_map[LayerTensorId::MOE_GATE_B] = &layer.gate_b;
+
+    BuildLayerTensorMap(layer.shared_expert);
 }
 
 #endif //USE_CUDA

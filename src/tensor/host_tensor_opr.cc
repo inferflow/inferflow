@@ -131,6 +131,187 @@ bool HostTensorOpr::Mul(HostTensor &C, const HostTensor &A, const HostTensor &B)
 }
 
 //static
+bool HostTensorOpr::SoftMax(HostTensor &A)
+{
+    return SoftMax(A, A);
+}
+
+//static
+bool HostTensorOpr::SoftMax(HostTensor &B, const HostTensor &A)
+{
+    int rows = A.Rows(), cols = A.Columns();
+    int rows_b = B.Rows(), cols_b = B.Columns();
+    if (rows != rows_b || cols != cols_b)
+    {
+        LogError("A and B are not compatible: (%d, %d) vs. (%d, %d)",
+            cols, rows, cols_b, rows_b);
+        return false;
+    }
+
+    if (A.data_type != ElementType::F16 || B.data_type != ElementType::F16)
+    {
+        LogError("Only FP16 type is supported so far");
+        return false;
+    }
+
+    for (int row = 0; row < rows; row++)
+    {
+        const inferflow_fp16 *src_row = (const inferflow_fp16*)A.RowData(row);
+        inferflow_fp16 *target_row = (inferflow_fp16*)B.RowData(row);
+        float max_value = src_row[0];
+        for (int col = 1; col < cols; col++)
+        {
+            const float val = src_row[col];
+            if (max_value < val) {
+                max_value = val;
+            }
+        }
+
+        float sum = 0;
+        for (int col = 0; col < cols; col++)
+        {
+            float val = src_row[col];
+            val = expf(val - max_value);
+            sum += val;
+            target_row[col] = val;
+        }
+
+        const float scale = 1.0f / sum;
+        for (int col = 0; col < cols; col++)
+        {
+            target_row[col] = target_row[col] * (inferflow_fp16)scale;
+        }
+    }
+
+    return true;
+}
+
+//static
+bool HostTensorOpr::BuildRowsForMoE(vector<RowItemForMoe> &row_items,
+    const HostTensor &router_logits, int moe_top_k, bool norm_top_k_prob)
+{
+    int token_num = router_logits.ne[1];
+    int expert_num = router_logits.ne[0];
+    row_items.clear();
+    row_items.resize(token_num);
+    moe_top_k = std::min(moe_top_k, RowItemForMoe::MAX_SIZE);
+
+    for (int row_idx = 0; row_idx < token_num; row_idx++)
+    {
+        const auto *src_row = (const inferflow_fp16*)router_logits.RowData(row_idx);
+        auto &item = row_items[row_idx];
+
+        int arr_len = 0;
+        for (int expert_id = 0; expert_id < expert_num; expert_id++)
+        {
+            const float score = src_row[expert_id];
+            if (arr_len >= moe_top_k && item.arr[arr_len - 1].weight >= score
+                || score < 0.00001f)
+            {
+                continue;
+            }
+
+            if (arr_len < moe_top_k)
+            {
+                item.arr[arr_len].Set(UINT32_MAX, 0);
+                arr_len++;
+            }
+
+            for (int e_idx = arr_len - 1; e_idx >= 0; e_idx--)
+            {
+                if (item.arr[e_idx].weight >= score) {
+                    break;
+                }
+
+                if (e_idx + 1 < arr_len) {
+                    item.arr[e_idx + 1] = item.arr[e_idx];
+                }
+                item.arr[e_idx].Set(expert_id, score);
+            }
+        }
+
+        item.size = arr_len;
+        if (norm_top_k_prob)
+        {
+            float sum = 0;
+            for (int idx = 0; idx < arr_len; idx++) {
+                sum += item.arr[idx].weight;
+            }
+            for (int idx = 0; idx < arr_len; idx++) {
+                item.arr[idx].weight /= sum;
+            }
+        }
+    }
+
+    /*for (int row_idx = 0; row_idx < token_num; row_idx++)
+    {
+        const auto *src_row = (const inferflow_fp16*)router_logits.RowData(row_idx);
+        auto &item = row_items[row_idx];
+
+        int arr_len = 0;
+        for (int expert_id = 0; expert_id < expert_num; expert_id++)
+        {
+            const float score = src_row[expert_id];
+            if (arr_len == 0)
+            {
+                item.arr[0].Set(expert_id, score);
+                arr_len = 1;
+            }
+            else if (arr_len == 1)
+            {
+                if (item.arr[0].weight < score)
+                {
+                    if (moe_top_k == 1)
+                    {
+                        item.arr[0].Set(expert_id, score);
+                    }
+                    else
+                    {
+                        item.arr[1] = item.arr[0];
+                        item.arr[0].Set(expert_id, score);
+                        arr_len++;
+                    }
+                }
+                else
+                {
+                    if (moe_top_k > 1)
+                    {
+                        item.arr[1].Set(expert_id, score);
+                        arr_len++;
+                    }
+                }
+            }
+            else
+            {
+                if (item.arr[0].weight < score)
+                {
+                    item.arr[1] = item.arr[0];
+                    item.arr[0].Set(expert_id, score);
+                }
+                else if (item.arr[1].weight < score)
+                {
+                    item.arr[1].Set(expert_id, score);
+                }
+            }
+        }
+
+        item.size = arr_len;
+        if (norm_top_k_prob)
+        {
+            float sum = 0;
+            for (int idx = 0; idx < arr_len; idx++) {
+                sum += item.arr[idx].weight;
+            }
+            for (int idx = 0; idx < arr_len; idx++) {
+                item.arr[idx].weight /= sum;
+            }
+        }
+    }*/
+
+    return true;
+}
+
+//static
 bool HostTensorOpr::Gemm(HostTensor &C, const HostTensor &A, const HostTensor &B,
     float alpha, float beta, bool is_b_column_major)
 {

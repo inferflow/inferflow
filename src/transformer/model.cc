@@ -21,11 +21,14 @@ int StdDeviceNetwork::MaxTensorSize() const
     if (!this->decoder_layers.empty())
     {
         int layer_num = (int)this->decoder_layers.size();
-        const auto *layer = decoder_layers[layer_num - 1];
-        if (layer != nullptr)
+        for (int layer_id = 0; layer_id < layer_num; layer_id++)
         {
-            int max_decoder_tensor_size = MaxTensorSize(*layer);
-            max_tensor_size = max(max_tensor_size, max_decoder_tensor_size);
+            const auto *layer = decoder_layers[layer_id];
+            if (layer != nullptr)
+            {
+                int max_decoder_tensor_size = MaxTensorSize(*layer);
+                max_tensor_size = max(max_tensor_size, max_decoder_tensor_size);
+            }
         }
     }
 
@@ -37,7 +40,8 @@ int StdDeviceNetwork::MaxTensorSize(const EncoderLayer &layer)
 {
     int m1 = MaxTensorSize(layer.self_attn);
     int m2 = MaxTensorSize(layer.ffn);
-    return max(m1, m2);
+    int m3 = MaxTensorSize(layer.moe);
+    return max(m1, max(m2, m3));
 }
 
 //static
@@ -46,7 +50,8 @@ int StdDeviceNetwork::MaxTensorSize(const DecoderLayer &layer)
     int m1 = MaxTensorSize(layer.self_attn);
     int m2 = MaxTensorSize(layer.cross_attn);
     int m3 = MaxTensorSize(layer.ffn);
-    return max(m1, max(m2, m3));
+    int m4 = MaxTensorSize(layer.moe);
+    return max(max(m1, m2), max(m3, m4));
 }
 
 //static
@@ -95,6 +100,42 @@ int StdDeviceNetwork::MaxTensorSize(const FeedForwardLayer &layer)
         int size = (int)tensor_array[idx]->size;
         if (max_size < size) {
             max_size = size;
+        }
+    }
+
+    return max_size;
+}
+
+//static
+int StdDeviceNetwork::MaxTensorSize(const FfnMoeLayer &layer)
+{
+    const DeviceTensor *tensor_array[] =
+    {
+        layer.gate.tensor
+    };
+
+    int max_size = 0;
+    int tensor_num = sizeof(tensor_array) / sizeof(tensor_array[0]);
+    for (int idx = 0; idx < tensor_num; idx++)
+    {
+        if (tensor_array[idx] == nullptr) {
+            continue;
+        }
+
+        int size = (int)tensor_array[idx]->size;
+        if (max_size < size) {
+            max_size = size;
+        }
+    }
+
+    for (const auto *expert_ptr : layer.experts)
+    {
+        if (expert_ptr != nullptr)
+        {
+            int size = MaxTensorSize(*expert_ptr);
+            if (max_size < size) {
+                max_size = size;
+            }
         }
     }
 
@@ -270,6 +311,32 @@ void StdDeviceNetwork::CalculateStat(NetworkStat &stat) const
             {
                 stat.decoder_layer_size[3] += tensor->MemoryCost_GB();
                 tensor_list.push_back(tensor);
+            }
+        }
+
+        auto moe_iter = layer0->moe.tensor_map.begin();
+        //LogKeyInfo("moe_tensor_map size: %d", layer0->moe.tensor_map.size());
+        for (; moe_iter != layer0->moe.tensor_map.end(); moe_iter++)
+        {
+            const auto *tensor = moe_iter->second->tensor;
+            if (tensor != nullptr)
+            {
+                stat.decoder_layer_size[3] += tensor->MemoryCost_GB();
+                tensor_list.push_back(tensor);
+            }
+        }
+
+        for (const auto *expert_ptr : layer0->moe.experts)
+        {
+            ffn_iter = expert_ptr->tensor_map.begin();
+            for (; ffn_iter != expert_ptr->tensor_map.end(); ffn_iter++)
+            {
+                const auto *tensor = ffn_iter->second->tensor;
+                if (tensor != nullptr)
+                {
+                    stat.decoder_layer_size[3] += tensor->MemoryCost_GB();
+                    tensor_list.push_back(tensor);
+                }
             }
         }
     }
@@ -452,6 +519,7 @@ void TransformerModel::InitNetworkStructureMap(NetworkStructureMap &the_map)
     the_map["transformer.encoder_decoder"] = NetworkType::EncoderDecoder_Transformer;
     the_map["transformer.encoder_only"] = NetworkType::EncoderOnly_Transformer;
     the_map["transformer.decoder_only"] = NetworkType::DecoderOnly_Transformer;
+    the_map["transformer.decoder_only.sparse_moe"] = NetworkType::SparseMoe_DecoderOnly_Transformer;
     the_map["bert"] = NetworkType::BERT;
     the_map["llama"] = NetworkType::LLAMA;
     the_map["transformer.llama"] = NetworkType::LLAMA;

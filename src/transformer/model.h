@@ -55,12 +55,18 @@ struct ModelHyperParams
     int decoder_heads = 0;
     int hidden_dim = 0;
     int decoder_kv_heads = 0;
+    int decoder_intermediate_size = 0;
 
     int training_context_len = -1;
 
     //for moe (Mixture-of-Experts)
     int experts = 0;
+    int in_use_experts = 0;
     int moe_top_k = 0;
+    bool moe_norm_top_k_prob = true;
+    int moe_layer_start = 0;
+    int moe_layer_end = -1;
+    bool has_shared_expert = false;
 };
 
 struct ModelSpec
@@ -95,6 +101,7 @@ struct ModelSpec
     float kq_scale = 1.0f;
     bool transform_qk = false;
     bool normalize_lm_head = false;
+    bool is_attn_post_as_residual = true;
     bool is_parallel_attn = false;
     bool mlp_attn_share_input = false;
     string tensor_name_prefix;
@@ -114,6 +121,7 @@ struct ModelSpec
 
     bool be_host_embeddings = true;
     ElementType device_weight_data_type = ElementType::F16;
+    ElementType device_weight_data_types[(int)LayerTensorId::COUNT];
     ElementType device_kv_cache_data_type = ElementType::Q8_B32T2;
     ElementType host_weight_data_type = ElementType::F16;
     float delta_tensor_ratio = 0;
@@ -195,10 +203,18 @@ public:
         DeviceTensorEx w1n3, w1n3_b; // (w1, w3)
     };
 
+    struct FfnMoeLayer : public SubLayer
+    {
+        DeviceTensorEx gate, gate_b;
+        FeedForwardLayer shared_expert;
+        PtrVector<FeedForwardLayer> experts;
+    };
+
     struct EncoderLayer
     {
         AttentionLayer self_attn;
         FeedForwardLayer ffn;
+        FfnMoeLayer moe;
     };
 
     struct DecoderLayer : public EncoderLayer
@@ -247,6 +263,7 @@ public:
     static int MaxTensorSize(const DecoderLayer &net);
     static int MaxTensorSize(const AttentionLayer &layer);
     static int MaxTensorSize(const FeedForwardLayer &layer);
+    static int MaxTensorSize(const FfnMoeLayer &layer);
 };
 #endif //USE_CUDA
 
@@ -411,10 +428,18 @@ public:
         const HostTensor *w1n3_b = nullptr;
     };
 
+    struct FfnMoeLayer
+    {
+        AtomicLayer gate;
+        FeedForwardLayer shared_expert;
+        PtrVector<FeedForwardLayer> experts;
+    };
+
     struct EncoderLayer
     {
         AttentionLayer self_attn;
         FeedForwardLayer ffn;
+        FfnMoeLayer moe;
     };
 
     struct DecoderLayer : public EncoderLayer

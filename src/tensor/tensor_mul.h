@@ -106,6 +106,17 @@ protected:
     static bool Gemv_AX8_Q8_B32T2(DeviceTensor &Y, const DeviceTensor &A,
         const DeviceTensor &X);
 
+    static bool Gemv_AX8_Q6_B64T1(DeviceTensor &Y, const DeviceTensor &A,
+        const DeviceTensor &X);
+    static bool Gemv_AX8_Q5_B64T1(DeviceTensor &Y, const DeviceTensor &A,
+        const DeviceTensor &X);
+    static bool Gemv_AX8_Q4_B64T1(DeviceTensor &Y, const DeviceTensor &A,
+        const DeviceTensor &X);
+    static bool Gemv_AX8_Q4_B32T1(DeviceTensor &Y, const DeviceTensor &A,
+        const DeviceTensor &X);
+    static bool Gemv_AX8_Q3H_B64T1(DeviceTensor &Y, const DeviceTensor &A,
+        const DeviceTensor &X);
+
     //U: An auxiliary tensor
     static bool Gemv_AX_Alg4(DeviceTensor &Y, const DeviceTensor &A,
         const DeviceTensor &X, DeviceTensor &U);

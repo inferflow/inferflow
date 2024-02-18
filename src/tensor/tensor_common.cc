@@ -15,10 +15,12 @@ int TensorCommon::ElementSize(ElementType etype)
     switch (etype)
     {
     case ElementType::F32:
+    case ElementType::I32:
         element_size = 4;
         break;
     case ElementType::F16:
     case ElementType::BF16:
+    case ElementType::I16:
         element_size = 2;
         break;
     case ElementType::Q8_GL:
@@ -41,10 +43,12 @@ int TensorCommon::BlockSize(ElementType etype)
     switch (etype)
     {
         case ElementType::F32:
+        case ElementType::I32:
             block_size = 4;
             break;
         case ElementType::F16:
         case ElementType::BF16:
+        case ElementType::I16:
             block_size = 2;
             break;
         case ElementType::Q8_GL:
@@ -106,6 +110,8 @@ int TensorCommon::BlockCapacity(ElementType etype)
     case ElementType::F32:
     case ElementType::F16:
     case ElementType::BF16:
+    case ElementType::I32:
+    case ElementType::I16:
     case ElementType::Q8_GL:
     case ElementType::Q8_LOG:
         block_capacity = 1;
@@ -203,6 +209,9 @@ void TensorCommon::InitElementTypeMap(ElementTypeNameMap &type_name_map)
     type_name_map[ElementType::F32] = "fp32";
     type_name_map[ElementType::F16] = "fp16";
     type_name_map[ElementType::BF16] = "bf16";
+
+    type_name_map[ElementType::I32] = "i32";
+    type_name_map[ElementType::I16] = "i16";
 
     type_name_map[ElementType::Q8_GL] = "q8_gl";
     type_name_map[ElementType::Q8_LOG] = "q8_log";

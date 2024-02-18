@@ -1,0 +1,59 @@
+{
+    "config_file": "config.json",
+    "model_files":
+    [
+        "model.safetensors.index.json",
+        "model-00001-of-00019.safetensors",
+        "model-00002-of-00019.safetensors",
+        "model-00003-of-00019.safetensors",
+        "model-00004-of-00019.safetensors",
+        "model-00005-of-00019.safetensors",
+        "model-00006-of-00019.safetensors",
+        "model-00007-of-00019.safetensors",
+        "model-00008-of-00019.safetensors",
+        "model-00009-of-00019.safetensors",
+        "model-00010-of-00019.safetensors",
+        "model-00011-of-00019.safetensors",
+        "model-00012-of-00019.safetensors",
+        "model-00013-of-00019.safetensors",
+        "model-00014-of-00019.safetensors",
+        "model-00015-of-00019.safetensors",
+        "model-00016-of-00019.safetensors",
+        "model-00017-of-00019.safetensors",
+        "model-00018-of-00019.safetensors",
+        "model-00019-of-00019.safetensors"
+    ],
+    "model_file_format": "safetensors",
+
+    "tokenizer_files": ["tokenizer.json", "special_tokens_map.json"],
+    "token_bytes_mapping": 0,
+    "tokenization_algorithm": "bpe",
+    "generation_config": "generation_config.json",
+
+    "network_structure":
+    {
+        "type": "transformer.decoder_only.sparse_moe",
+        "normalization_function": "rms",
+        "activation_function": "silu",
+        "position_embedding": "rope",
+        "is_attn_post_as_residual": false,
+
+        "qk_column_order": 2,
+
+        "expert_count": 8,
+        "using_expert_count": 8,
+        "moe_top_k": 2,
+
+        "tensor_name_prefix": "model.",
+        "tensor_name_mapping":
+        {
+            "embed_tokens.weight": "dec.token_embeddings.weight",
+            "layers.{i}.post_attention_layernorm.weight": "dec.{i}.self_attn.post_norm.weight",
+            "layers.{i}.block_sparse_moe.gate.weight": "dec.{i}.moe.gate.weight",
+            "layers.{i}.block_sparse_moe.experts.{j}.w1.weight": "dec.{i}.moe.expert.{j}.w1.weight",
+            "layers.{i}.block_sparse_moe.experts.{j}.w2.weight": "dec.{i}.moe.expert.{j}.w2.weight",
+            "layers.{i}.block_sparse_moe.experts.{j}.w3.weight": "dec.{i}.moe.expert.{j}.w3.weight",
+            "norm.weight": "dec.output_norm.weight"
+        }
+    }
+}

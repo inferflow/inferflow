@@ -1,0 +1,53 @@
+{
+    "config_file": "config.json",
+    "model_files":
+    [
+        "model.safetensors.index.json",
+        "model-00001-of-00007.safetensors",
+        "model-00002-of-00007.safetensors",
+        "model-00003-of-00007.safetensors",
+        "model-00004-of-00007.safetensors",
+        "model-00005-of-00007.safetensors",
+        "model-00006-of-00007.safetensors",
+        "model-00007-of-00007.safetensors"
+    ],
+    "model_file_format": "safetensors",
+
+    "tokenizer_files": ["tokenizer.json"],
+    "token_bytes_mapping": 1,
+    "tokenization_algorithm": "bpe",
+    "generation_config": "generation_config.json",
+
+    "network_structure":
+    {
+        "type": "transformer.decoder_only.sparse_moe",
+        "normalization_function": "rms",
+        "activation_function": "silu",
+        "position_embedding": "rope",
+        "is_attn_post_as_residual": false,
+
+        "qk_column_order": 2,
+
+        "expert_count": 64,
+        "using_expert_count": 64,
+        "moe_top_k": 6,
+        "moe_norm_top_k_prob": false,
+        "moe_layer_start": 1,
+        "has_shared_expert": true,
+
+        "tensor_name_prefix": "model.",
+        "tensor_name_mapping":
+        {
+            "embed_tokens.weight": "dec.token_embeddings.weight",
+            "layers.{i}.post_attention_layernorm.weight": "dec.{i}.self_attn.post_norm.weight",
+            "layers.{i}.mlp.gate.weight": "dec.{i}.moe.gate.weight",
+            "layers.{i}.mlp.shared_experts.gate_proj.weight": "dec.{i}.moe.shared_expert.w1.weight",
+            "layers.{i}.mlp.shared_experts.down_proj.weight": "dec.{i}.moe.shared_expert.w2.weight",
+            "layers.{i}.mlp.shared_experts.up_proj.weight": "dec.{i}.moe.shared_expert.w3.weight",
+            "layers.{i}.mlp.experts.{j}.gate_proj.weight": "dec.{i}.moe.expert.{j}.w1.weight",
+            "layers.{i}.mlp.experts.{j}.down_proj.weight": "dec.{i}.moe.expert.{j}.w2.weight",
+            "layers.{i}.mlp.experts.{j}.up_proj.weight": "dec.{i}.moe.expert.{j}.w3.weight",
+            "norm.weight": "dec.output_norm.weight"
+        }
+    }
+}

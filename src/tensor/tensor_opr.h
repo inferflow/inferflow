@@ -103,6 +103,9 @@ public:
     static bool Mul(DeviceTensor &C, const DeviceTensor &A,
         const DeviceTensor &B);
 
+    static bool AddByRowIndex(DeviceTensor &B, const DeviceTensor &A,
+        const DeviceTensor &idx_tensor, const DeviceTensor *weight_tensor);
+
     //Supports ROPE and ALIBI
     static bool PositionEmbedding(DeviceTensor &A, const PosEmbeddingParams &params,
         int start_z = 0, int z_num = -1, int base_z = 0);

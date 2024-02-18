@@ -7,6 +7,7 @@ INFER_FLOW_BEGIN
 
 using std::vector;
 using std::map;
+using sslib::IdWeight;
 using sslib::BlockedAllocator;
 
 // Parameters of position embedding
@@ -21,6 +22,13 @@ struct PosEmbeddingParams
     int order_type = 0;
     float rope_theta = 10000.0f;
     float partial_rotary_factor = 1.0f;
+};
+
+struct RowItemForMoe
+{
+    static const int MAX_SIZE = 8;
+    int size = 0;
+    IdWeight<float> arr[MAX_SIZE];
 };
 
 typedef map<string, TensorNormAlg, StrLessNoCase> TensorNormAlgMap;
@@ -40,6 +48,13 @@ public:
         const HostTensor &B);
     static bool Mul(HostTensor &C, const HostTensor &A,
         const HostTensor &B);
+
+    static bool SoftMax(HostTensor &A);
+    static bool SoftMax(HostTensor &B, const HostTensor &A);
+
+    static bool BuildRowsForMoE(vector<RowItemForMoe> &row_items,
+        const HostTensor &router_logits, int moe_top_k,
+        bool norm_top_k_prob = true);
 
     //GEMM
     static bool Gemm(HostTensor &C, const HostTensor &A, const HostTensor &B,

@@ -17,6 +17,8 @@ enum class ElementType
     F32 = 0,    //float
     F16,        //float16
     BF16,       //bfloat16 (brain floating point 16 bits)
+    I32,        //int32
+    I16,        //int16
     Q8_GL,      //8-bit quantization: global linear
     Q8_LOG,     //8-bit quantization: global logarithmic
     Q8_B32T1,   //8-bit quantization: block linear (block capacity 32, type-1)
