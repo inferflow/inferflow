@@ -456,7 +456,8 @@ bool TensorOpr::VectorDotProduct(DeviceTensor &C, const DeviceTensor &A,
 
 //static
 bool TensorOpr::LayerNormalization(DeviceTensor &T, const DeviceTensor &S,
-    TensorNormAlg alg_id, const DeviceTensor *M, const DeviceTensor *A)
+    TensorNormAlg alg_id, const DeviceTensor *M, const DeviceTensor *A,
+    float multi_base)
 {
     bool ret = true;
     switch (alg_id)
@@ -465,7 +466,7 @@ bool TensorOpr::LayerNormalization(DeviceTensor &T, const DeviceTensor &S,
         ret = StdNorm(T, S, M, A);
         break;
     case TensorNormAlg::RMS:
-        ret = RmsNorm(T, S, M, A);
+        ret = RmsNorm(T, S, M, A, multi_base);
         break;
     case TensorNormAlg::LINEAR:
         ret = LinearNorm(T, S);
@@ -478,7 +479,7 @@ bool TensorOpr::LayerNormalization(DeviceTensor &T, const DeviceTensor &S,
 }
 
 //static
-bool TensorOpr::LinearNorm(DeviceTensor &T, const DeviceTensor &S)
+bool TensorOpr::LinearNorm(DeviceTensor &T, const DeviceTensor &S, float scale)
 {
     if (T.dim != S.dim || T.ne[0] != S.ne[0] || T.ne[1] != S.ne[1]
         || T.ne[2] != S.ne[2])
@@ -488,7 +489,9 @@ bool TensorOpr::LinearNorm(DeviceTensor &T, const DeviceTensor &S)
         return false;
     }
 
-    float scale = (float)sqrt(S.ne[0]);
+    if (scale <= 0.0001) {
+        scale = (float)sqrt(S.ne[0]);
+    }
     bool ret = Scale(T, S, scale);
     return ret;
 }
@@ -552,7 +555,7 @@ bool TensorOpr::StdNorm(DeviceTensor &T, const DeviceTensor &S,
 
 //static
 bool TensorOpr::RmsNorm(DeviceTensor &T, const DeviceTensor &S,
-    const DeviceTensor *M, const DeviceTensor *A)
+    const DeviceTensor *M, const DeviceTensor *A, float multi_base)
 {
     if (T.dim != S.dim || T.ne[0] != S.ne[0] || T.ne[1] != S.ne[1]
         || T.ne[2] != S.ne[2])
@@ -581,7 +584,7 @@ bool TensorOpr::RmsNorm(DeviceTensor &T, const DeviceTensor &S,
         const half *add_data = A != nullptr ? A->data_f16() : nullptr;
 
         Tensor_RmsNorm_Kernel<half, half><<<grid, block>>>(rows, cols, src_data,
-            target_data, eps, rows_mul, mul_data, rows_add, add_data);
+            target_data, eps, rows_mul, mul_data, rows_add, add_data, multi_base);
     }
     else
     {
@@ -591,7 +594,7 @@ bool TensorOpr::RmsNorm(DeviceTensor &T, const DeviceTensor &S,
         const float *add_data = A != nullptr ? A->data_f32() : nullptr;
 
         Tensor_RmsNorm_Kernel<float, float><<<grid, block>>>(rows, cols, src_data,
-            target_data, eps, rows_mul, mul_data, rows_add, add_data);
+            target_data, eps, rows_mul, mul_data, rows_add, add_data, multi_base);
     }
 
     bool ret = CudaUtil::DeviceSynchronize("RmsNorm");

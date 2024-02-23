@@ -434,20 +434,32 @@ DeviceTensor* GpuInferenceWorker::ProcessPreLayer(const DeviceTensor *layer_inpu
 {
     bool ret = true;
     //bool is_b_column_major = !config_ex_->is_gpu_tensor_row_major;
-    const auto &hparams = model_ptr_->spec.hyper_params;
+    const auto &model_spec = model_ptr_->spec;
+    const auto &hparams = model_spec.hyper_params;
     if (config_->debug.is_study_mode) {
         PrintTensor(layer_input, 8, 8, 8, "input (0):\n");
     }
 
-    const auto &model_spec = model_ptr_->spec;
+    DeviceTensor *new_input = nullptr;
+    if (model_spec.has_embedding_linear_norm)
+    {
+        new_input = CreateLocalTensor(*layer_input, false, heap_idx);
+        TensorOpr::LinearNorm(*new_input, *layer_input, model_spec.embedding_linear_scale);
+        layer_input = new_input;
+
+        if (config_->debug.is_study_mode) {
+            PrintTensor(new_input, 8, 8, 8, "input_after_linear_norm (100):\n");
+        }
+    }
+
     if (model_spec.pos_embedding_alg == PositionEmbeddingAlg::SINUSOIDAL
         || model_spec.pos_embedding_alg == PositionEmbeddingAlg::SINUSOIDAL2)
     {
         DeviceTensor *layer_norm = CreateLocalTensor(*layer_input, false, heap_idx);
-        if (model_spec.has_linear_norm_before_sinusoidal)
+        if (model_spec.has_linear_norm_before_sinusoidal
+            && !model_spec.has_embedding_linear_norm)
         {
-            TensorNormAlg norm_alg = TensorNormAlg::LINEAR;
-            TensorOpr::LayerNormalization(*layer_norm, *layer_input, norm_alg);
+            TensorOpr::LinearNorm(*layer_norm, *layer_input, model_spec.embedding_linear_scale);
         }
         else
         {
@@ -456,7 +468,7 @@ DeviceTensor* GpuInferenceWorker::ProcessPreLayer(const DeviceTensor *layer_inpu
         }
 
         if (config_->debug.is_study_mode) {
-            PrintTensor(layer_norm, 8, 8, 8, "layer_norm (100):\n");
+            PrintTensor(layer_norm, 8, 8, 8, "layer_norm (105):\n");
         }
 
         PosEmbeddingParams pos_embd_params;
@@ -477,13 +489,12 @@ DeviceTensor* GpuInferenceWorker::ProcessPreLayer(const DeviceTensor *layer_inpu
         }
 
         if (config_->debug.is_study_mode) {
-            PrintTensor(layer_norm, 8, 8, 8, "layer_norm (101):\n");
+            PrintTensor(layer_norm, 8, 8, 8, "layer_norm (106):\n");
         }
         return layer_norm;
     }
 
     const StdDeviceNetwork *device_net = GetDeviceNet();
-    DeviceTensor *new_input = nullptr;
     DeviceTensor *out_tensor = CreateLocalTensor(*layer_input, false, heap_idx);
     if (!is_encoder_ && device_net->decoder_pos_embeddings != nullptr)
     {
@@ -551,28 +562,34 @@ DeviceTensor* GpuInferenceWorker::ProcessPostLayer(DeviceTensor *layer_input,
         : device_net->decoder_output_norm;
 
     DeviceTensor *norm = layer_input;
+    if (model_spec.out_scale < 0.9999 || model_spec.out_scale > 1.0001)
+    {
+        TensorOpr::Scale(*norm, model_spec.out_scale);
+    }
+
     if (output_norm != nullptr)
     {
+        const auto *output_norm_b = is_encoder_ ? device_net->encoder_output_norm_b
+            : device_net->decoder_output_norm_b;
+
         norm = CreateLocalTensor(*layer_input, false, heap_idx);
-        TensorOpr::LayerNormalization(*norm, *layer_input, model_spec.norm_alg);
+        TensorOpr::LayerNormalization(*norm, *layer_input, model_spec.norm_alg,
+            output_norm, output_norm_b, model_spec.output_norm_base);
 
         if (config_->debug.is_study_mode) {
             PrintTensor(norm, 8, 8, 8, "norm (1000901):\n");
         }
 
-        //DeviceTensor *norm2 = CreateLocalTensor(*layer_input, false);
-        const auto *output_norm_b = is_encoder_ ? device_net->encoder_output_norm_b
-            : device_net->decoder_output_norm_b;
-        ret = TensorOpr::Mul(*norm, *norm, *output_norm);
-        if (ret && output_norm_b != nullptr) {
-            ret = TensorOpr::Add(*norm, *norm, *output_norm_b);
-        }
+        //ret = TensorOpr::Mul(*norm, *norm, *output_norm);
+        //if (ret && output_norm_b != nullptr) {
+        //    ret = TensorOpr::Add(*norm, *norm, *output_norm_b);
+        //}
     }
 
     DeviceTensor *norm2 = norm;
-    if (config_->debug.is_study_mode) {
-        PrintTensor(norm2, 8, 8, 8, "norm (1000905):\n");
-    }
+    //if (config_->debug.is_study_mode) {
+    //    PrintTensor(norm2, 8, 8, 8, "norm (1000905):\n");
+    //}
 
     DeviceTensor *out = is_encoder_ ? norm2 : nullptr;
     TaskMonitor tm;
@@ -814,6 +831,10 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer(int layer_idx,
         PrintTensor(self_att_out.output, 8, 30, 8, "self_att_out (10500):\n", layer_idx);
     }
 
+    if (model_spec.attn_out_scale < 0.9999 || model_spec.attn_out_scale > 1.0001) {
+        TensorOpr::Scale(*self_att_out.output, model_spec.attn_out_scale);
+    }
+
     if (!model_spec.is_parallel_attn && !model_spec.mlp_attn_share_input)
     {
         //DeviceTensor *ff_input = CreateLocalTensor(*layer_input, true, heap_idx);
@@ -894,6 +915,10 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer(int layer_idx,
 
     if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_) {
         PrintTensor(ff_out, 8, 8, 8, "ff_out (10700):\n", layer_idx);
+    }
+
+    if (model_spec.ffn_out_scale < 0.9999 || model_spec.ffn_out_scale > 1.0001) {
+        TensorOpr::Scale(*ff_out, model_spec.ffn_out_scale);
     }
 
     tm.Start();
@@ -1003,7 +1028,7 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
 
         DeviceTensor *q_norm = CreateLocalTensor(*input_q, true, heap_idx);
         bool ret = TensorOpr::LayerNormalization(*q_norm, *input_q, model_spec.norm_alg,
-            pre_norm, pre_norm_b);
+            pre_norm, pre_norm_b, model_spec.attn_pre_norm_base);
         input_q_norm = q_norm;
         attn_out.pre_norm = q_norm;
         Macro_RetIf(attn_out, !ret);
@@ -1015,9 +1040,10 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
 
     if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_)
     {
-        //PrintTensor(layer.pre_norm.tensor, 8, 8, 8, "attn.pre_norm:\n", layer_idx);
-        //PrintTensor(layer.pre_norm_b.tensor, 8, 8, 8, "attn.pre_norm_b:\n", layer_idx);
-        PrintTensor(input_q_norm, 8, 8, 8, "attn_q_norm2 (10202):\n", layer_idx);
+        PrintTensor(layer.pre_norm.tensor, 8, 8, 8, "attn.pre_norm:\n", layer_idx);
+        PrintTensor(layer.pre_norm_b.tensor, 8, 8, 8, "attn.pre_norm_b:\n", layer_idx);
+        PrintTensor(input_q, 8, 8, 8, "input_q (10201):\n", layer_idx);
+        PrintTensor(input_q_norm, 8, 8, 8, "attn_q_norm (10202):\n", layer_idx);
     }
 
     //const DeviceTensor *input_kv_tensor = input_kv == nullptr ? q_norm : input_kv->tensor;
@@ -1712,7 +1738,7 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_FeedForward(int layer_idx,
     {
         norm2 = CreateLocalTensor(*input_tensor, true, heap_idx);
         ret = TensorOpr::LayerNormalization(*norm2, *input_tensor, model_spec.norm_alg,
-            layer.pre_norm.tensor, layer.pre_norm_b.tensor);
+            layer.pre_norm.tensor, layer.pre_norm_b.tensor, model_spec.ffn_pre_norm_base);
         Macro_RetIf(nullptr, !ret);
     }
 

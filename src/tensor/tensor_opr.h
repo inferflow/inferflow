@@ -60,12 +60,14 @@ public:
 
     static bool LayerNormalization(DeviceTensor &T, const DeviceTensor &S,
         TensorNormAlg alg_id = TensorNormAlg::STD,
-        const DeviceTensor *M = nullptr, const DeviceTensor *A = nullptr);
-    static bool LinearNorm(DeviceTensor &T, const DeviceTensor &S);
+        const DeviceTensor *M = nullptr, const DeviceTensor *A = nullptr,
+        float multi_base = 0);
+    static bool LinearNorm(DeviceTensor &T, const DeviceTensor &S, float scale = 0);
     static bool StdNorm(DeviceTensor &T, const DeviceTensor &S,
         const DeviceTensor *M = nullptr, const DeviceTensor *A = nullptr);
     static bool RmsNorm(DeviceTensor &T, const DeviceTensor &S,
-        const DeviceTensor *M = nullptr, const DeviceTensor *A = nullptr);
+        const DeviceTensor *M = nullptr, const DeviceTensor *A = nullptr,
+        float multi_base = 0);
     static bool RmsNorm_Naive(DeviceTensor &T, const DeviceTensor &S);
 
     static bool VectorDotProduct(DeviceTensor &C, const DeviceTensor &A,

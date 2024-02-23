@@ -89,10 +89,18 @@ struct ModelSpec
     TensorNormAlg norm_alg = TensorNormAlg::STD;
     ActivationFn activation_fn = ActivationFn::SILU;
     PositionEmbeddingAlg pos_embedding_alg = PositionEmbeddingAlg::ROPE;
+    bool has_embedding_linear_norm = false;
+    float embedding_linear_scale = 0;
     bool has_linear_norm_before_sinusoidal = true;
     float rope_theta = 10000.0f;
     float partial_rotary_factor = 1.0f;
     int pos_embedding_offset = 0;
+    float attn_pre_norm_base = 0;
+    float ffn_pre_norm_base = 0;
+    float output_norm_base = 0;
+    float attn_out_scale = 1;
+    float ffn_out_scale = 1;
+    float out_scale = 1;
     map<string, string> tensor_name_map;
     map<string, string> tensor_name_pre_map;
 
