@@ -34,7 +34,7 @@ without writing a single line of source code. Further details can be found in ou
 
 Below is a comparison between Inferflow and some other inference engines:
 
-| Model                                                        | New Model Support    | Supported File Formats   | Network Structures | Quantization Bits | Hybrid Parallelism for Multi-GPU Inference | Programming Languages |
+| Inference Engine                                             | New Model Support    | Supported File Formats   | Network Structures | Quantization Bits | Hybrid Parallelism for Multi-GPU Inference | Programming Languages |
 |--------------------------------------------------------------|----------------------|--------------------------|--------------------|-------------------|:------------------------------------------:|-----------------------|
 | [Huggingface Transformers](https://huggingface.co/docs/transformers/index) | Adding/editing source codes | pickle (unsafe), safetensors  | decoder-only, encoder-decoder, encoder-only | 4b, 8b | &#10008; | Python | 
 | [vLLM](https://github.com/vllm-project/vllm)                 | Adding/editing source codes | pickle (unsafe), safetensors | decoder-only | 4b, 8b       | &#10008; | Python            |
