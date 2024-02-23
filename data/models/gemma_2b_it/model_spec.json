@@ -1,0 +1,47 @@
+{
+    "config_file": "config.json",
+    "model_files":
+    [
+        "model.safetensors.index.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors"
+    ],
+    "model_file_format": "safetensors",
+
+    "tokenizer_files": ["tokenizer.json", "special_tokens_map.json"],
+    "tokenization_algorithm": "bpe",
+    "token_bytes_mapping": 0,
+    "generation_config": "generation_config.json",
+
+    "network_structure":
+    {
+        "type": "transformer.decoder_only",
+        "has_embedding_linear_norm": true,
+        "normalization_function": "rms",
+        "activation_function": "gelu",
+        "position_embedding": "rope",
+
+        "qk_column_order": 2,
+        "kq_scale": 1,
+        "is_parallel_attn": false,
+        
+        "attn_pre_norm_base": 1,
+        "ffn_pre_norm_base": 1,
+        "output_norm_base": 1,
+
+        "tensor_name_prefix": "model.",
+        "tensor_name_mapping":
+        {
+            "embed_tokens.weight": "dec.token_embeddings.weight",
+            "layers.{i}.input_layernorm.weight": "dec.{i}.self_attn.pre_norm.weight",
+            "layers.{i}.self_attn.q_proj.weight": "dec.{i}.self_attn.wq.weight",
+            "layers.{i}.self_attn.k_proj.weight": "dec.{i}.self_attn.wk.weight",
+            "layers.{i}.self_attn.v_proj.weight": "dec.{i}.self_attn.wv.weight",
+            "layers.{i}.self_attn.o_proj.weight": "dec.{i}.self_attn.wo.weight",
+            "layers.{i}.mlp.gate_proj.weight": "dec.{i}.feed_forward.w1.weight",
+            "layers.{i}.mlp.down_proj.weight": "dec.{i}.feed_forward.w2.weight",
+            "layers.{i}.mlp.up_proj.bias": "dec.{i}.feed_forward.w3.weight",
+            "norm.weight": "dec.output_norm.weight"
+        }
+    }
+}

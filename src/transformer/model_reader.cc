@@ -371,6 +371,10 @@ bool ModelReader::LoadModelSpecJson(ModelSpec &model_spec, const string &file_pa
         model_spec.pos_embedding_alg = iter->second;
     }
 
+    net_struc_obj.GetFieldValue(model_spec.has_embedding_linear_norm,
+        L"has_embedding_linear_norm", jdoc);
+    net_struc_obj.GetFieldValue(model_spec.embedding_linear_scale,
+        L"embedding_linear_scale", jdoc);
     net_struc_obj.GetFieldValue(model_spec.has_linear_norm_before_sinusoidal,
         L"linear_norm_before_sinusoidal", jdoc);
 
@@ -388,6 +392,13 @@ bool ModelReader::LoadModelSpecJson(ModelSpec &model_spec, const string &file_pa
     net_struc_obj.GetFieldValue(model_spec.mlp_attn_share_input, L"mlp_attn_share_input", jdoc);
 
     net_struc_obj.GetFieldValue(model_spec.use_self_attn_pre_norm, L"use_self_attn_pre_norm", jdoc);
+    net_struc_obj.GetFieldValue(model_spec.attn_pre_norm_base, L"attn_pre_norm_base", jdoc);
+    net_struc_obj.GetFieldValue(model_spec.ffn_pre_norm_base, L"ffn_pre_norm_base", jdoc);
+    net_struc_obj.GetFieldValue(model_spec.output_norm_base, L"output_norm_base", jdoc);
+
+    net_struc_obj.GetFieldValue(model_spec.attn_out_scale, L"attn_out_scale", jdoc);
+    net_struc_obj.GetFieldValue(model_spec.ffn_out_scale, L"ffn_out_scale", jdoc);
+    net_struc_obj.GetFieldValue(model_spec.out_scale, L"out_scale", jdoc);
 
     net_struc_obj.GetFieldValue(hparams.experts, L"expert_count", jdoc);
     net_struc_obj.GetFieldValue(hparams.in_use_experts, L"using_expert_count", jdoc);

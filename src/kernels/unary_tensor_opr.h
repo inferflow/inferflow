@@ -216,7 +216,7 @@ __global__ void Tensor_StdNorm_Half_Alg2S_Kernel(int rows, int cols, half const 
 template <typename SourceType, typename TargetType>
 __global__ void Tensor_RmsNorm_Kernel(int rows, int cols, SourceType const *S, TargetType *T,
     float eps, int rows_mul = 0, SourceType const *M = nullptr,
-    int rows_add = 0, SourceType const *A = nullptr)
+    int rows_add = 0, SourceType const *A = nullptr, float multi_base = 0)
 {
     int tid = threadIdx.x;
     int row = threadIdx.y + blockIdx.y * blockDim.y;
@@ -275,12 +275,12 @@ __global__ void Tensor_RmsNorm_Kernel(int rows, int cols, SourceType const *S, T
             float v = (float)src_row[xi] * scale;
             if (M != nullptr && A != nullptr)
             {
-                v = v * (float)M[(row % rows_mul) * cols + xi]
+                v = v * (multi_base + (float)M[(row % rows_mul) * cols + xi])
                     + (float)A[(row % rows_add) * cols + xi];
             }
             else if (M != nullptr)
             {
-                v = v * (float)M[(row % rows_mul) * cols + xi];
+                v = v * (multi_base + (float)M[(row % rows_mul) * cols + xi]);
             }
 
             target_row[xi] = (TargetType)v;
