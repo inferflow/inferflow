@@ -1,0 +1,32 @@
+{
+    "config_file": "config.json",
+    "model_files": ["pytorch_model.bin"],
+    "model_file_format": "pickle",
+
+    "tokenizer_files": ["tokenizer.model", "special_tokens_map.json"],
+    "tokenization_algorithm": "bpe",
+    "token_bytes_mapping": 0,
+    "generation_config": "generation_config.json",
+
+    "network_structure":
+    {
+        "type": "transformer.decoder_only",
+        "has_embedding_linear_norm": true,
+        "embedding_linear_scale": 12,
+        "normalization_function": "rms",
+        "activation_function": "silu",
+        "position_embedding": "rope",
+
+        "qk_column_order": 2,
+        
+        "attn_out_scale": 0.25,
+        "ffn_out_scale": 0.25,
+        "out_scale": 0.111111,
+
+        "tensor_name_prefix": "model.",
+        "tensor_name_mapping":
+        {
+            "norm.weight": "dec.output_norm.weight"
+        }
+    }
+}
