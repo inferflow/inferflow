@@ -357,7 +357,7 @@ bool Run(const string &config_path)
 
             int next_token_id = query_res.next_tokens[0].id;
             float next_token_score = query_res.next_tokens[0].weight;
-            bool is_eos = next_token_id == vocab.eos();
+            bool is_eos = vocab.IsEos(next_token_id);
             bool is_bos = next_token_id == vocab.bos();
 
             if (!(is_eos || is_bos) && query_res.query_id == query_id_for_display) {

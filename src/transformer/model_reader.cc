@@ -674,6 +674,7 @@ bool ModelReader::LoadGeneratinConfig(TransformerModel &model,
     const string &file_path, const JsonParser &jparser)
 {
     GenerationConfig &config = model.generation_config;
+    //auto &vocab = model.vocabulary;
 
     wstring content;
     bool ret = Path::GetFileContent_Text(content, file_path);
@@ -704,7 +705,11 @@ void ModelReader::GetSpecialTokenIds(TransformerModel &model,
     const JsonObject &jobj, const JsonDoc &jdoc)
 {
     auto &vocab = model.vocabulary;
+
     int token_id = 0;
+    if (jobj.GetFieldValue(token_id, L"pad_token_id", jdoc)) {
+        model.pad_token_id = token_id;
+    }
     if (jobj.GetFieldValue(token_id, L"unk_token_id", jdoc)) {
         vocab.SetUnk(token_id);
     }
@@ -714,9 +719,20 @@ void ModelReader::GetSpecialTokenIds(TransformerModel &model,
     if (jobj.GetFieldValue(token_id, L"eos_token_id", jdoc)) {
         vocab.SetEos(token_id);
     }
-    if (jobj.GetFieldValue(token_id, L"pad_token_id", jdoc)) {
-        model.pad_token_id = token_id;
+
+    JsonArray jarray;
+    if (jobj.GetFieldValue(jarray, L"eos_token_id", jdoc))
+    {
+        vector<int> eos_ids;
+        for (uint32_t idx = 0; idx < jarray.size; idx++)
+        {
+            token_id = jarray.items[idx].GetIntValue();
+            eos_ids.push_back(token_id);
+        }
+
+        vocab.SetEos(eos_ids);
     }
+
     //if (jobj.GetFieldValue(token_id, L"decoder_start_token_id", jdoc)) {
     //    model.decoder_start_token_id = token_id;
     //}
@@ -2080,6 +2096,7 @@ int ModelReader::Pickle_ReadTensor(TransformerModel &model, TransformerContext &
     const ModelPartition &model_partition, const PtrVector<NetworkBuilder> &builder_list,
     bool is_study_mode)
 {
+    (void)model_partition; (void)builder_list;
     string section_name;
     HostTensorMap &tensor_map = model.std_network.tensor_map;
     TensorSpecTable &tensor_table = model.tensor_spec_table;

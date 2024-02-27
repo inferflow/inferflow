@@ -362,7 +362,6 @@ bool StdSamplingStrategy::ChooseTokens(SamplingOutput &output,
 {
     output.Clear();
     int item_count = input.CandidateCount();
-    uint32_t eos = (uint32_t)vocab.eos();
 
     QueryData *base_query_data = AddOrFindQueryData(input.query_id);
     StdQueryData *query_data = dynamic_cast<StdQueryData*>(base_query_data);
@@ -392,8 +391,8 @@ bool StdSamplingStrategy::ChooseTokens(SamplingOutput &output,
     int token_pool_size = (int)output.token_pool.size();
     rng.RandomSampling(output.selected, output.token_pool, 1);
 
-    if (!output.selected.empty() && output.token_pool[0].id == eos
-        && output.selected[0].id != eos)
+    if (!output.selected.empty() && vocab.IsEos(output.token_pool[0].id)
+        && !vocab.IsEos(output.selected[0].id))
     {
         output.flag = 1;
         output.flag_score = output.selected[0].weight;
@@ -408,7 +407,7 @@ bool StdSamplingStrategy::ChooseTokens(SamplingOutput &output,
         //    LogKeyInfo("Selected: %d (%.3f)", selected.id, selected.weight);
         //}
 
-        if (selected.id == eos && token_pool_size > 1 && query_data != nullptr
+        if (vocab.IsEos(selected.id) && token_pool_size > 1 && query_data != nullptr
             && query_data->eos_bypassing_count < config.eos_bypassing_max)
         {
             output.flag = 2;
@@ -417,7 +416,7 @@ bool StdSamplingStrategy::ChooseTokens(SamplingOutput &output,
             //    selected.id, selected.weight);
             for (const auto &item : output.token_pool)
             {
-                if (item.id != eos)
+                if (!vocab.IsEos(item.id))
                 {
                     output.selected[0] = item;
                     query_data->eos_bypassing_count++;
@@ -462,7 +461,6 @@ bool FsdSamplingStrategy::ChooseTokens(SamplingOutput &output,
     (void)strategy_id;
     output.Clear();
     int item_count = input.CandidateCount();
-    uint32_t eos = (uint32_t)vocab.eos();
 
     QueryData *base_query_data = AddOrFindQueryData(input.query_id);
     FsdQueryData *query_data = dynamic_cast<FsdQueryData*>(base_query_data);
@@ -505,8 +503,8 @@ bool FsdSamplingStrategy::ChooseTokens(SamplingOutput &output,
     int token_pool_size = (int)output.token_pool.size();
     output.selected.push_back(output.token_pool[0]);
 
-    if (!output.selected.empty() && output.token_pool[0].id == eos
-        && output.selected[0].id != eos)
+    if (!output.selected.empty() && vocab.IsEos(output.token_pool[0].id)
+        && !vocab.IsEos(output.selected[0].id))
     {
         LogKeyInfo("[eos_not_selected: %d_%.3f]", output.token_pool[0].id,
             output.token_pool[0].weight);
@@ -519,14 +517,14 @@ bool FsdSamplingStrategy::ChooseTokens(SamplingOutput &output,
         //    LogKeyInfo("Selected: %d (%.3f)", selected.id, selected.weight);
         //}
 
-        if (selected.id == eos && token_pool_size > 1 && query_data != nullptr
+        if (vocab.IsEos(selected.id) && token_pool_size > 1 && query_data != nullptr
             && query_data->eos_bypassing_count < config_.eos_bypassing_max)
         {
             LogKeyInfo("[eos_bypassing_%d: %d_%.3f]", query_data->eos_bypassing_count,
                 selected.id, selected.weight);
             for (const auto &item : output.token_pool)
             {
-                if (item.id != eos)
+                if (!vocab.IsEos(item.id))
                 {
                     output.selected[0] = item;
                     query_data->eos_bypassing_count++;
@@ -575,7 +573,6 @@ bool RandomizedFSDSamplingStrategy::ChooseTokens(SamplingOutput &output,
     (void)strategy_id; (void)thread_count;
     output.Clear();
     int item_count = input.CandidateCount();
-    uint32_t eos = (uint32_t)vocab.eos();
 
     QueryData *base_query_data = AddOrFindQueryData(input.query_id);
     RandomizedFSDQueryData *query_data = dynamic_cast<RandomizedFSDQueryData*>(base_query_data);
@@ -631,8 +628,8 @@ bool RandomizedFSDSamplingStrategy::ChooseTokens(SamplingOutput &output,
     }
 
     int token_pool_size = (int)output.token_pool.size();
-    if (!output.selected.empty() && output.token_pool[0].id == eos
-        && output.selected[0].id != eos)
+    if (!output.selected.empty() && vocab.IsEos(output.token_pool[0].id)
+        && !vocab.IsEos(output.selected[0].id))
     {
         LogKeyInfo("[eos_not_selected: %d_%.3f]", output.token_pool[0].id,
             output.token_pool[0].weight);
@@ -645,14 +642,14 @@ bool RandomizedFSDSamplingStrategy::ChooseTokens(SamplingOutput &output,
         //    LogKeyInfo("Selected: %d (%.3f)", selected.id, selected.weight);
         //}
 
-        if (selected.id == eos && token_pool_size > 1 && query_data != nullptr
+        if (vocab.IsEos(selected.id) && token_pool_size > 1 && query_data != nullptr
             && query_data->eos_bypassing_count < config_.eos_bypassing_max)
         {
             LogKeyInfo("[eos_bypassing_%d: %d_%.3f]", query_data->eos_bypassing_count,
                 selected.id, selected.weight);
             for (const auto &item : output.token_pool)
             {
-                if (item.id != eos)
+                if (!vocab.IsEos(item.id))
                 {
                     output.selected[0] = item;
                     query_data->eos_bypassing_count++;
@@ -703,7 +700,6 @@ bool MinPSamplingStrategy::ChooseTokens(SamplingOutput &output,
     (void)strategy_id; (void)thread_count;
     output.Clear();
     int item_count = input.CandidateCount();
-    uint32_t eos = (uint32_t)vocab.eos();
 
     QueryData *base_query_data = AddOrFindQueryData(input.query_id);
     MinPQueryData *query_data = dynamic_cast<MinPQueryData*>(base_query_data);
@@ -729,8 +725,8 @@ bool MinPSamplingStrategy::ChooseTokens(SamplingOutput &output,
     rng.RandomSampling(output.selected, output.token_pool, 1);
 
     int token_pool_size = (int)output.token_pool.size();
-    if (!output.selected.empty() && output.token_pool[0].id == eos
-        && output.selected[0].id != eos)
+    if (!output.selected.empty() && vocab.IsEos(output.token_pool[0].id)
+        && !vocab.IsEos(output.selected[0].id))
     {
         LogKeyInfo("[eos_not_selected: %d_%.3f]", output.token_pool[0].id,
             output.token_pool[0].weight);
@@ -743,14 +739,14 @@ bool MinPSamplingStrategy::ChooseTokens(SamplingOutput &output,
         //    LogKeyInfo("Selected: %d (%.3f)", selected.id, selected.weight);
         //}
 
-        if (selected.id == eos && token_pool_size > 1 && query_data != nullptr
+        if (vocab.IsEos(selected.id) && token_pool_size > 1 && query_data != nullptr
             && query_data->eos_bypassing_count < config_.eos_bypassing_max)
         {
             LogKeyInfo("[eos_bypassing_%d: %d_%.3f]", query_data->eos_bypassing_count,
                 selected.id, selected.weight);
             for (const auto &item : output.token_pool)
             {
-                if (item.id != eos)
+                if (!vocab.IsEos(item.id))
                 {
                     output.selected[0] = item;
                     query_data->eos_bypassing_count++;
@@ -795,7 +791,6 @@ bool TFSSamplingStrategy::ChooseTokens(SamplingOutput &output,
     (void)strategy_id; (void)thread_count;
     output.Clear();
     int item_count = input.CandidateCount();
-    uint32_t eos = (uint32_t)vocab.eos();
 
     QueryData *base_query_data = AddOrFindQueryData(input.query_id);
     TFSQueryData *query_data = dynamic_cast<TFSQueryData*>(base_query_data);
@@ -844,8 +839,8 @@ bool TFSSamplingStrategy::ChooseTokens(SamplingOutput &output,
     rng.RandomSampling(output.selected, output.token_pool, 1);
 
     int token_pool_size = (int)output.token_pool.size();
-    if (!output.selected.empty() && output.token_pool[0].id == eos
-        && output.selected[0].id != eos)
+    if (!output.selected.empty() && vocab.IsEos(output.token_pool[0].id)
+        && !vocab.IsEos(output.selected[0].id))
     {
         LogKeyInfo("[eos_not_selected: %d_%.3f]", output.token_pool[0].id,
             output.token_pool[0].weight);
@@ -858,14 +853,14 @@ bool TFSSamplingStrategy::ChooseTokens(SamplingOutput &output,
         //    LogKeyInfo("Selected: %d (%.3f)", selected.id, selected.weight);
         //}
 
-        if (selected.id == eos && token_pool_size > 1 && query_data != nullptr
+        if (vocab.IsEos(selected.id) && token_pool_size > 1 && query_data != nullptr
             && query_data->eos_bypassing_count < config_.eos_bypassing_max)
         {
             LogKeyInfo("[eos_bypassing_%d: %d_%.3f]", query_data->eos_bypassing_count,
                 selected.id, selected.weight);
             for (const auto &item : output.token_pool)
             {
-                if (item.id != eos)
+                if (!vocab.IsEos(item.id))
                 {
                     output.selected[0] = item;
                     query_data->eos_bypassing_count++;
@@ -910,7 +905,6 @@ bool TypicalSamplingStrategy::ChooseTokens(SamplingOutput &output,
     (void)strategy_id; (void)thread_count;
     output.Clear();
     int item_count = input.CandidateCount();
-    uint32_t eos = (uint32_t)vocab.eos();
 
     QueryData *base_query_data = AddOrFindQueryData(input.query_id);
     TypicalQueryData *query_data = dynamic_cast<TypicalQueryData*>(base_query_data);
@@ -958,8 +952,8 @@ bool TypicalSamplingStrategy::ChooseTokens(SamplingOutput &output,
     rng.RandomSampling(output.selected, output.token_pool, 1);
 
     int token_pool_size = (int)output.token_pool.size();
-    if (!output.selected.empty() && output.token_pool[0].id == eos
-        && output.selected[0].id != eos)
+    if (!output.selected.empty() && vocab.IsEos(output.token_pool[0].id)
+        && !vocab.IsEos(output.selected[0].id))
     {
         LogKeyInfo("[eos_not_selected: %d_%.3f]", output.token_pool[0].id,
             output.token_pool[0].weight);
@@ -972,14 +966,14 @@ bool TypicalSamplingStrategy::ChooseTokens(SamplingOutput &output,
         //    LogKeyInfo("Selected: %d (%.3f)", selected.id, selected.weight);
         //}
 
-        if (selected.id == eos && token_pool_size > 1 && query_data != nullptr
+        if (vocab.IsEos(selected.id) && token_pool_size > 1 && query_data != nullptr
             && query_data->eos_bypassing_count < config_.eos_bypassing_max)
         {
             LogKeyInfo("[eos_bypassing_%d: %d_%.3f]", query_data->eos_bypassing_count,
                 selected.id, selected.weight);
             for (const auto &item : output.token_pool)
             {
-                if (item.id != eos)
+                if (!vocab.IsEos(item.id))
                 {
                     output.selected[0] = item;
                     query_data->eos_bypassing_count++;
@@ -1028,7 +1022,6 @@ bool MirostatSamplingStrategy::ChooseTokens(SamplingOutput &output,
     //std::cout << print_vector(*input.prefix) << std::endl;
     output.Clear();
     int item_count = input.CandidateCount();
-    uint32_t eos = (uint32_t)vocab.eos();
 
     QueryData *base_query_data = AddOrFindQueryData(input.query_id);
     MirostatQueryData *query_data = dynamic_cast<MirostatQueryData*>(base_query_data);
@@ -1064,8 +1057,8 @@ bool MirostatSamplingStrategy::ChooseTokens(SamplingOutput &output,
     rng.RandomSampling(output.selected, output.token_pool, 1);
     int token_pool_size = (int)output.token_pool.size();
 
-    if (!output.selected.empty() && output.token_pool[0].id == eos
-        && output.selected[0].id != eos)
+    if (!output.selected.empty() && vocab.IsEos(output.token_pool[0].id)
+        && !vocab.IsEos(output.selected[0].id))
     {
         LogKeyInfo("[eos_not_selected: %d_%.3f]", output.token_pool[0].id,
             output.token_pool[0].weight);
@@ -1078,14 +1071,14 @@ bool MirostatSamplingStrategy::ChooseTokens(SamplingOutput &output,
         //    LogKeyInfo("Selected: %d (%.3f)", selected.id, selected.weight);
         //}
 
-        if (selected.id == eos && token_pool_size > 1 && query_data != nullptr
+        if (vocab.IsEos(selected.id) && token_pool_size > 1 && query_data != nullptr
             && query_data->eos_bypassing_count < config_.eos_bypassing_max)
         {
             LogKeyInfo("[eos_bypassing_%d: %d_%.3f]", query_data->eos_bypassing_count,
                 selected.id, selected.weight);
             for (const auto &item : output.token_pool)
             {
-                if (item.id != eos)
+                if (!vocab.IsEos(item.id))
                 {
                     output.selected[0] = item;
                     query_data->eos_bypassing_count++;

@@ -17,6 +17,31 @@ int CharToDigit(char ch)
     return -1;
 }
 
+void StdVocabulary::SetEos(const vector<int>& ids)
+{
+    eos_id_map_.clear();
+    if (ids.empty()) {
+        return;
+    }
+
+    eos_id_ = ids[0];
+    for (int idx =  0; idx < (int)ids.size(); idx++)
+    {
+        int id = ids[idx];
+        eos_id_map_[id] = idx;
+    }
+}
+
+bool StdVocabulary::IsEos(int id) const
+{
+    if (eos_id_map_.empty()) {
+        return id == eos_id_;
+    }
+
+    auto iter = eos_id_map_.find(id);
+    return iter != eos_id_map_.end();
+}
+
 string StdVocabulary::IdToStr(int id, bool enable_decoding) const
 {
     if (id < 0 || id >= (int)token_array.size()) {
