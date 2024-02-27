@@ -97,6 +97,7 @@ Users can serve a model with Inferflow by editing a model specification file. We
 - [X] OPT (opt_350m, opt_13b, opt_iml_max_30b)
 - [X] Orion (orion_14b_chat)
 - [X] Phi-2 (phi_2)
+- [X] Qwen (qwen1.5_7b_chat) 
 - [X] XVERSE (xverse_13b_chat)
 - [X] YI (yi_6b, yi_34b_chat)
 
