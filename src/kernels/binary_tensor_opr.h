@@ -93,6 +93,13 @@ __global__ void AddByRowIdx_Kernel(DataType *B, DataType const *A, int N, int M,
     {
         int offset1 = c_row * N + start_col;
         int offset2 = idx_data[c_row] * N + start_col;
+
+        //if (c_row >= 0 && M >= 80 && start_col == 0)
+        //{
+        //    printf("c_row: %d, M: %d, N: %d, row2: %d, offsets: (%d, %d)\n",
+        //        c_row, M, N, idx_data[c_row], offset1, offset2);
+        //}
+
         half w = weights == nullptr ? (half)1.0f : weights[c_row];
         float2 v1 = *(float2*)(A + offset1);
         float2 v2 = *(float2*)(B + offset2);
@@ -110,10 +117,10 @@ __global__ void AddByRowIdx_Kernel(DataType *B, DataType const *A, int N, int M,
 #   pragma unroll
     for (int col = start_col; col < end_col; col++)
     {
-        half w = nullptr ? (half)1.0f : weights[c_row];
+        half w = weights == nullptr ? (half)1.0f : weights[c_row];
         int offset1 = c_row * N + col;
         int offset2 = idx_data[c_row] * N + col;
-        B[offset1] = __hfma(A[offset2], w, B[offset1]);
+        B[offset2] = __hfma(A[offset1], w, B[offset2]);
     }
 }
 

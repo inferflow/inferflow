@@ -35,6 +35,7 @@ public:
         str_to_id.clear();
         token_array.clear();
         merge_map.clear();
+        eos_id_map_.clear();
     }
 
     int Size() const {
@@ -73,9 +74,13 @@ public:
         eos_id_ = id;
     }
 
+    void SetEos(const vector<int> &ids);
+
     void SetEos(const string &str) {
         eos_id_ = StrToId(str);
     }
+
+    bool IsEos(int id) const;
 
     int StrToId(const string &str) const
     {
@@ -89,6 +94,7 @@ protected:
     int unk_id_ = 0;
     int bos_id_ = 1;
     int eos_id_ = 2;
+    map<int, int> eos_id_map_;
 
 protected:
 };

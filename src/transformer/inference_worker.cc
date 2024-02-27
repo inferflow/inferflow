@@ -1985,7 +1985,8 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_Moe(int layer_idx,
         UpdatePerfStat(perf_base + 40, tm);
     }
 
-    //LogKeyInfo("===== row_items");
+    //LogKeyInfo("===== layer %d: %d token(s), %d row_item(s)", layer_idx,
+    //    token_num, (int)row_items.size());
     //for (const auto &row_item : row_items)
     //{
     //    stringstream ss;
@@ -2026,7 +2027,7 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_Moe(int layer_idx,
     }
     else*/
     {
-        out_tensor = CreateLocalTensor(*input_tensor, false, heap_idx);
+        out_tensor = CreateLocalTensor(*input_tensor, true, heap_idx);
         out_tensor->AssignZero();
     }
 
@@ -2084,7 +2085,8 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_Moe(int layer_idx,
             PrintTensor(weight_tensor, 8, 8, 8, "===== weight_tensor:\n");
         }
 
-        bool enable_tensor_printing = expert_idx == 2; //false
+        //bool enable_tensor_printing = expert_idx == 2;
+        bool enable_tensor_printing = false;
         DeviceTensor *expert_out_tensor = ProcessGpuLayer_FeedForward(layer_idx,
             *expert_layer, partial_input, heap_idx, is_encoder, enable_tensor_printing);
 
@@ -2094,7 +2096,11 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer_Moe(int layer_idx,
             PrintTensor(expert_out_tensor, 8, 8, 8, "expert_out_tensor:\n");
         }
 
-        TensorOpr::AddByRowIndex(*out_tensor, *expert_out_tensor, *idx_tensor, weight_tensor);
+        ret = TensorOpr::AddByRowIndex(*out_tensor, *expert_out_tensor,
+            *idx_tensor, weight_tensor);
+        if (!ret) {
+            return nullptr;
+        }
 
         if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_)
         {
@@ -2586,7 +2592,9 @@ DeviceTensor* GpuInferenceWorker::CreateLocalTensor(ElementType etype, int ne0,
 
     auto &heap = is_layer_local ? layer_local_device_heap_
         : (heap_idx >= 0 ? local_device_heaps_[heap_idx] : local_device_heap_);
-    new_tensor->data = heap.NewHalfArray(new_tensor->size);
+
+    int bytes = (int)TensorCommon::ByteCount(etype, new_tensor->size);
+    new_tensor->data = heap.New(bytes);
     if (new_tensor->data == nullptr)
     {
         LogError("%s (is_layer_local: %s, heap_idx: %d, size: %d*%d*%d, scenario: %d)",

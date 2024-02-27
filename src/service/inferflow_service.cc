@@ -91,7 +91,7 @@ bool InferFlowServiceCore::Infer(int max_output_len)
         int output_len = query_res.prefix_len + 1;
 
         int next_token_id = query_res.next_tokens[0].id;
-        bool is_eos = next_token_id == vocab.eos();
+        bool is_eos = vocab.IsEos(next_token_id);
 
         QueryNextToken next_token;
         next_token.id = next_token_id;
