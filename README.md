@@ -19,6 +19,10 @@ without writing a single line of source code. Further details can be found in ou
 1. Getting started ([on Windows](docs/getting_started.win.md) | [on Linux, Mac, and Windows Subsystem for Linux (WSL)](#getting-started))
 2. [Serving 34B or 40B models on a single 24GB-VRAM GPU](docs/34b40b_models_on_24gb_vram.md) (e.g., RTX 3090 and 4090)
 
+## Milestones
+* 2024-2-18: Added support for mixture-of-experts (MoE) models.
+* 2024-1-17: Version 0.1.0 was formally released.
+
 ## Main Features
 1. **Extensible and highly configurable**: A typical way of using Inferflow to serve a new model is editing a model specification file, but not adding/editing source codes. We implement in Inferflow a modular framework of atomic building-blocks and technologies, making it compositionally generalizable to new models. A new model can be served by Inferflow if the atomic building-blocks and technologies in this model have been "known" (to Inferflow).
 2. **3.5-bit quantization**: Inferflow implements 2-bit, 3-bit, 3.5-bit, 4-bit, 5-bit, 6-bit and 8-bit quantization. Among the quantization schemes, 3.5-bit quantization is a new one introduced by Inferflow.
@@ -30,7 +34,7 @@ without writing a single line of source code. Further details can be found in ou
 
 Below is a comparison between Inferflow and some other inference engines:
 
-| Model                                                        | New Model Support    | Supported File Formats   | Network Structures | Quantization Bits | Hybrid Parallelism for Multi-GPU Inference | Programming Languages |
+| Inference Engine                                             | New Model Support    | Supported File Formats   | Network Structures | Quantization Bits | Hybrid Parallelism for Multi-GPU Inference | Programming Languages |
 |--------------------------------------------------------------|----------------------|--------------------------|--------------------|-------------------|:------------------------------------------:|-----------------------|
 | [Huggingface Transformers](https://huggingface.co/docs/transformers/index) | Adding/editing source codes | pickle (unsafe), safetensors  | decoder-only, encoder-decoder, encoder-only | 4b, 8b | &#10008; | Python | 
 | [vLLM](https://github.com/vllm-project/vllm)                 | Adding/editing source codes | pickle (unsafe), safetensors | decoder-only | 4b, 8b       | &#10008; | Python            |
@@ -79,13 +83,21 @@ Users can serve a model with Inferflow by editing a model specification file. We
 - [X] Baichuan (baichuan2_7b_chat, baichuan2_13b_chat)
 - [X] BERT (bert-base-multilingual-cased)
 - [X] Bloom (bloomz_3b)
+- [X] Deepseek (deepseek_moe_16b_base)
 - [X] Facebook m2m100 (facebook_m2m100_418m)
 - [X] Falcon (falcon_7b_instruct, falcon_40b_instruct)
+- [X] FuseLLM (fusellm_7b)
+- [X] Gemma (gemma_2b_it)
 - [X] Internlm (internlm-chat-20b)
 - [X] LLAMA2 (llama2_7b, llama2_7b_chat, llama2_13b_chat)
+- [X] MiniCPM (minicpm_2b_dpo_bf16)
 - [X] Mistral (mistral_7b_instruct)
+- [X] Mixtral (mixtral_8x7b_instruct_v0.1)
 - [X] Open LLAMA (open_llama_3b)
+- [X] OPT (opt_350m, opt_13b, opt_iml_max_30b)
+- [X] Orion (orion_14b_chat)
 - [X] Phi-2 (phi_2)
+- [X] Qwen (qwen1.5_7b_chat) 
 - [X] XVERSE (xverse_13b_chat)
 - [X] YI (yi_6b, yi_34b_chat)
 
