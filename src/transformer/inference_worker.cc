@@ -816,6 +816,11 @@ DeviceTensor* GpuInferenceWorker::ProcessGpuLayer(int layer_idx,
         UpdatePerfStat(perf_base + 100, tm);
     }
 
+    if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_)
+    {
+        PrintTensor(layer_input, 8, 8, 8, "layer_input (before attn):\n", layer_idx);
+    }
+
     /// self-attention
     tm.Start();
     AttentionOutput self_att_out = ProcessGpuLayer_Attention(layer_idx,
@@ -1072,6 +1077,7 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
     {
         //old: (8, 1, 48)
         PrintTensor(cur_qkv.q, 8, 3, 30, "cur_qkv.q (10203):\n", layer_idx);
+        //PrintTensor(input_q, 8, 8, 8, "input_q (10210):\n", layer_idx);
         if (cur_qkv.k != nullptr) {
             PrintTensor(cur_qkv.k, 8, 30, 2, "cur_qkv.k (10213):\n", layer_idx);
         }
@@ -1355,6 +1361,7 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
     if (config_->debug.enable_perf_stat && layer_idx == layer_idx_for_study_)
     {
         PrintTensor(layer.wo.tensor, 8, 8, 8, "wo:\n");
+        PrintTensor(input_q, 8, 8, 8, "input_q (10267):\n", layer_idx);
         PrintTensor(out, 8, 30, 8, "self_attn_out (10268):\n");
     }
 
@@ -1386,6 +1393,7 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
 
     if (config_->debug.show_tensors && layer_idx == layer_idx_for_study_)
     {
+        PrintTensor(input_q, 8, 8, 8, "input_q (10269):\n", layer_idx);
         PrintTensor(out, 8, 8, 8, "self_attention_out (10270):\n");
     }
 
@@ -2240,9 +2248,10 @@ DeviceTensor* GpuInferenceWorker::MergeTensors(const vector<TensorWithDeviceId> 
     }
 
     DeviceTensor *merged_tensor = CreateLocalTensor(ElementType::F16,
-        cx, cy, 1, false, heap_idx);
-    DeviceTensor *quant_src_tensor = CreateLocalTensor(ElementType::Q8_B32T2,
-        cx0, cy, 1, true, heap_idx);
+        cx, cy, 1, true, heap_idx);
+    DeviceTensor *quant_src_tensor = is_quant_tensor_exchange_
+        ? CreateLocalTensor(ElementType::Q8_B32T2, cx0, cy, 1, true, heap_idx)
+        : nullptr;
     DeviceTensor *dequant_tensor = CreateLocalTensor(ElementType::F16,
         cx0, cy, 1, true, heap_idx);
 
@@ -2327,10 +2336,11 @@ bool GpuInferenceWorker::MatrixMultiplicationEx(DeviceTensor &C, const DeviceTen
 { //AQ: A quant
     bool ret = true;
     bool has_delta = B.delta != nullptr && !B.delta->IsEmpty();
+    const DeviceTensor &tensor_a = B.tensor->IsQuantized() ? AQ : A;
 
     if (has_delta)
     {
-        ret = MatrixMultiplication(C, AQ, *B.tensor, is_b_column_major);
+        ret = MatrixMultiplication(C, tensor_a, *B.tensor, is_b_column_major);
         TensorMul::GemmSparse(C, A, *B.delta, 1.0f, 1.0f);
         if (bias != nullptr) {
             TensorOpr::Add(C, C, *bias);
@@ -2338,7 +2348,7 @@ bool GpuInferenceWorker::MatrixMultiplicationEx(DeviceTensor &C, const DeviceTen
     }
     else
     {
-        ret = MatrixMultiplication(C, AQ, *B.tensor, is_b_column_major, nullptr);
+        ret = MatrixMultiplication(C, tensor_a, *B.tensor, is_b_column_major, nullptr);
         if (bias != nullptr) {
             TensorOpr::Add(C, C, *bias);
         }

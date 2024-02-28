@@ -63,7 +63,7 @@ int CudaUtil::GetDeviceMemoryInfo(DeviceMemoryInfo &mem_info, int device_id)
 {
     int device_count = DeviceCount();
     int current_device_id = GetDevice();
-    if (device_id < 0 && device_id >= device_count) {
+    if (device_id < 0 || device_id >= device_count) {
         device_id = current_device_id;
     }
 

@@ -27,6 +27,8 @@ bool DeviceTensorBuilder::Init(int device_id, int aux_buffer_capacity, int aux_t
         aux_tensor_.New(ElementType::F16, aux_tensor_size);
     }
 
+    //LogKeyInfo("aux_buffer_capacity: %d, aux_tensor_size: %d",
+    //    aux_buffer_capacity, aux_tensor_size);
     return true;
 }
 
@@ -39,6 +41,8 @@ bool DeviceTensorBuilder::Init(const vector<int> &devices,
         aux_tensor_.New(ElementType::F16, aux_tensor_size);
     }
 
+    //LogKeyInfo("aux_buffer_capacity: %d, aux_tensor_size: %d",
+    //    aux_buffer_capacity, aux_tensor_size);
     return true;
 }
 
@@ -192,8 +196,10 @@ bool DeviceTensorBuilder::Build(vector<DeviceTensorEx*> &targets,
         DeviceTensor target_tensor;
         DeviceTensorEx target;
         target.tensor = &target_tensor;
+        CudaUtil::SetDevice(devices[0]); //!!!
         ret = Build_Quant(target, cpu_tensor, aux_buffer, device_data_type,
             be_trans, aux_tensor);
+
         if (partition_type == TensorPartitionType::BY_COL)
         {
             int target_cy = cy_new / target_num;
@@ -400,6 +406,12 @@ bool DeviceTensorBuilder::Build_Quant(DeviceTensorEx &target, const HostTensor &
 
         if (ret)
         {
+            //DeviceMemoryInfo dmi;
+            //CudaUtil::GetDeviceMemoryInfo(dmi);
+            //LogKeyInfo("quant_type: %d, size: (%d, %d, %d), aux_tensor: (%d, %d), %.2fGB free",
+            //    (int)quant_type, cx_new, cy_new, cz, aux_tensor->size, aux_tensor->max_bytes,
+            //    dmi.free_gb);
+
             target.tensor->New(quant_type, cx_new, cy_new, cz);
             ret = TensorOpr::Quantize(*target.tensor, *aux_tensor);
         }
