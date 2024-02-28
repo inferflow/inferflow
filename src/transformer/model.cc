@@ -491,6 +491,14 @@ bool TransformerModel::CheckModelSpec(const ModelSpec &spec)
             return false;
         }
 
+        if (hparams.decoder_kv_heads % device_num_per_group != 0)
+        {
+            LogError("Tensor parallelism requires that %s (kv_heads: %d, devices: %d)",
+                "decoder_kv_heads is a multiple of the device count",
+                hparams.decoder_kv_heads, device_num_per_group);
+            return false;
+        }
+
         if (spec.qkv_format != 0)
         {
             LogError("qkv_format %d is not compatible with tensor parallelism",

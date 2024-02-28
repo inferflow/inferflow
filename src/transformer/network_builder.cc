@@ -1307,6 +1307,7 @@ bool NetworkBuilder::BuildDeviceNetwork_ByTensor(
     }
 
     tm.Progress(1);
+    CudaUtil::SetDevice((*la.devices)[0]); //!!!
     PtrVector<DeviceTensorBuilder> builder_list;
     int aux_tensor_size = max_tensor_size;
     for (int builder_idx = 0; builder_idx < builder_count; builder_idx++)
@@ -1572,9 +1573,6 @@ void NetworkBuilder::BuildTask_Std(DeviceTensorBuilder::Task &task,
         if (tensor_data_type == ElementType::Q8_GL) {
             tensor_data_type = ElementType::Q8_B32T2;
         }
-        //if (tensor_data_type >= ElementType::Q3_B32T1A) {
-        //    tensor_data_type = ElementType::Q4_B32T1A;
-        //}
         task.Set(nullptr, nullptr, tensor_data_type, false, be_trans);
         break;
     case 0:

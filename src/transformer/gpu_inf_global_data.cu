@@ -122,7 +122,7 @@ bool GpuInfGlobalData::GetOutputTensors(vector<TensorWithDeviceId> &tensor_list,
     {
         const PhaseData *phase_ptr = GetPhase(worker_data, phase_id);
         if (phase_ptr != nullptr)
-	{
+        {
             TensorWithDeviceId tdi;
             tdi.tensor = phase_ptr->output_tensor;
             tdi.device_id = phase_ptr->device_id;

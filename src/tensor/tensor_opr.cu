@@ -252,7 +252,7 @@ bool TensorOpr::Reshape(DeviceTensor &A, int new_dim_count,
     for (int dim_idx = 0; dim_idx < new_dim_count; dim_idx++)
     {
         if (dims[dim_idx] < 1) {
-            LogError("Invalid parameters");
+            LogError("Invalid parameters: dims[%d] = %d", dim_idx, dims[dim_idx]);
             return false;
         }
 

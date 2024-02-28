@@ -20,6 +20,7 @@ void RawDeviceArray::Clear()
     }
 
     this->size = 0;
+    this->max_bytes = 0;
 }
 
 uint64_t RawDeviceArray::ByteCount() const
@@ -107,7 +108,10 @@ bool RawDeviceArray::New(ElementType etype, int element_count)
     this->data_type = etype;
 
     int element_size = TensorCommon::ElementSize(etype);
-    auto ret_code = cudaMalloc((void**)&this->data, element_count * element_size);
+    int bytes = element_count * element_size;
+    this->max_bytes = bytes;
+
+    auto ret_code = cudaMalloc((void**)&this->data, bytes);
     if (ret_code != cudaSuccess)
     {
         LogError("Failed to call cudaMalloc: %d (%s)", ret_code, cudaGetErrorString(ret_code));
@@ -577,6 +581,8 @@ bool DeviceTensor::New(ElementType etype, int n0, int n1, int n2)
     }
 
     uint64_t bytes = this->bytes_per_row * this->ne[1] * this->ne[2];
+    this->max_bytes = bytes;
+
     auto ret_code = cudaMalloc((void**)&this->data, bytes);
     if (ret_code != cudaSuccess)
     {
@@ -642,6 +648,11 @@ bool DeviceTensor::SetStructure(int n0, int n1, int n2)
     this->bytes_per_row = TensorCommon::ByteCount(this->data_type, n0);
 
     this->size = ne[0] * ne[1] * ne[2];
+    int bytes = (int)TensorCommon::ByteCount(data_type, size);
+    if (bytes > this->max_bytes && this->max_bytes > 0) {
+        LogWarning("bytes should not be larger than max_bytes: %d vs. %d", bytes, max_bytes);
+    }
+
     return true;
 }
 

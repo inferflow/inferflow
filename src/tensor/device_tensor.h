@@ -15,6 +15,7 @@ class RawDeviceArray
 public:
     ElementType data_type = ElementType::F32;
     int size = 0;
+    int max_bytes = 0;
     void *data = nullptr;
 
 protected:
