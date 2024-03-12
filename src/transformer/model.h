@@ -93,6 +93,7 @@ struct ModelSpec
     float embedding_linear_scale = 0;
     bool has_linear_norm_before_sinusoidal = true;
     float rope_theta = 10000.0f;
+    int rope_dim = -1;
     float partial_rotary_factor = 1.0f;
     int pos_embedding_offset = 0;
     float attn_pre_norm_base = 0;

@@ -47,6 +47,7 @@ bool GpuInferenceWorker::Init(int id, int worker_num, int group_id, int group_nu
     const auto &model_spec = model_ptr_->spec;
 
     layer_idx_for_study_ = 0;
+    min_prefix_len_for_study_ = 0;
 
     int device_id_bak = CudaUtil::GetDevice();
     CudaUtil::SetDevice(device_id_);
@@ -226,6 +227,8 @@ void GpuInferenceWorker::SetInput(const DeviceTensor *input, InferencePerfStat &
     if (global_end_layer > 0 && !is_encoder) {
         global_decoder_end_layer_ = min(global_end_layer, decoder_layer_range_.layer_num);
     }
+
+    first_query_prefix_len_ = query_list[0].prefix_len;
 }
 
 void GpuInferenceWorker::Run()
@@ -1012,7 +1015,7 @@ GpuInferenceWorker::AttentionOutput GpuInferenceWorker::ProcessGpuLayer_Attentio
 
     PosEmbeddingParams pos_embd_params;
     pos_embd_params.heads = hparams_heads; //!!! not head_num
-    pos_embd_params.dims = head_dim;
+    pos_embd_params.dims = model_spec.rope_dim > 0 ? model_spec.rope_dim : head_dim;
     pos_embd_params.order_type = model_ptr_->spec.qk_column_order;
     pos_embd_params.alg = model_spec.pos_embedding_alg;
     pos_embd_params.rope_theta = model_spec.rope_theta;
@@ -1468,7 +1471,7 @@ bool GpuInferenceWorker::Attention_CalculateCurQKV(CurQKV &cur_qkv, int layer_id
 
     PosEmbeddingParams pos_embd_params;
     pos_embd_params.heads = head_num; //to do: check it
-    pos_embd_params.dims = head_dim;
+    pos_embd_params.dims = model_spec.rope_dim > 0 ? model_spec.rope_dim : head_dim;
     pos_embd_params.order_type = model_ptr_->spec.qk_column_order;
     pos_embd_params.rope_theta = model_spec.rope_theta;
     pos_embd_params.partial_rotary_factor = model_spec.partial_rotary_factor;
@@ -1489,6 +1492,7 @@ bool GpuInferenceWorker::Attention_CalculateCurQKV(CurQKV &cur_qkv, int layer_id
 
         if (config_->debug.is_study_mode && layer_idx == layer_idx_for_study_)
         {
+            //PrintTensor(layer.qkv.tensor, 8, 30, 8, "layer.qkv:\n");
             PrintTensor(qkv_tensor, 8, 30, 8, "qkv_tensor (m1):\n");
         }
 
@@ -2638,6 +2642,7 @@ void GpuInferenceWorker::PrintTensor(const DeviceTensor *tensor, int max_cx,
     int max_cy, int max_cz, const char *title, int layer_id)
 {
     if (config_->debug.is_study_mode && config_->debug.show_tensors
+        && first_query_prefix_len_ >= min_prefix_len_for_study_
         && tensor != nullptr && (id_ == 0 || global_data_ != nullptr))
     {
         if (global_data_ != nullptr) {
@@ -2646,10 +2651,12 @@ void GpuInferenceWorker::PrintTensor(const DeviceTensor *tensor, int max_cx,
 
         ostream &tensor_writer = tensor_writer_ != nullptr ? *tensor_writer_ : cout;
         if (layer_id >= 0) {
-            tensor_writer << "worker " << id_ << ", layer: " << layer_id << endl;
+            tensor_writer << "worker " << id_ << ", layer: " << layer_id
+                << ", prefix_len: " << first_query_prefix_len_ << endl;
         }
         else {
-            tensor_writer << "worker " << id_ << endl;
+            tensor_writer << "worker " << id_ << ", prefix_len: "
+                << first_query_prefix_len_ << endl;
         }
         tensor->Print(tensor_writer, max_cx, max_cy, max_cz, title) << endl;
         tensor_writer.flush();

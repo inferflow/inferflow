@@ -122,6 +122,8 @@ protected:
     bool is_by_layer_ = true;
     bool is_quant_tensor_exchange_ = true;
     int layer_idx_for_study_ = 0;
+    int min_prefix_len_for_study_ = 0;
+    int first_query_prefix_len_ = 0;
 
     vector<int> devices_;
     GpuInfGlobalData *global_data_ = nullptr;

@@ -379,6 +379,7 @@ bool ModelReader::LoadModelSpecJson(ModelSpec &model_spec, const string &file_pa
         L"linear_norm_before_sinusoidal", jdoc);
 
     net_struc_obj.GetFieldValue(model_spec.rope_theta, L"rope_theta", jdoc);
+    net_struc_obj.GetFieldValue(model_spec.rope_dim, L"rope_dim", jdoc);
     net_struc_obj.GetFieldValue(model_spec.partial_rotary_factor, L"partial_rotary_factor", jdoc);
 
     net_struc_obj.GetFieldValue(model_spec.pos_embedding_offset, L"pos_embedding_offset", jdoc);
