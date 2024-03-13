@@ -226,14 +226,15 @@ Socket::RetCode InferFlowServiceCore::HandleRequest_Inner(
             auto &res_item = iter->second;
             is_end = is_end || res_item.is_end;
 
-            if (is_end) {
+            if (is_end)
+            {
                 query_to_result_.erase(iter);
             }
-            else {
+            else
+            {
                 new_text += res_item.text;
+                res_item.text.clear();
             }
-
-            res_item.text.clear();
         }
         result_lock_.unlock(); //unlock
 

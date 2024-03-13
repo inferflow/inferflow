@@ -25,6 +25,7 @@
         "normalization_function": "rms",
         "activation_function": "glu_silu",
         "position_embedding": "rope",
+        "rope_dim": 64,
 
         "qk_column_order": 1,
         "kq_scale": 1,
