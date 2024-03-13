@@ -83,6 +83,7 @@ Users can serve a model with Inferflow by editing a model specification file. We
 - [X] Baichuan (baichuan2_7b_chat, baichuan2_13b_chat)
 - [X] BERT (bert-base-multilingual-cased)
 - [X] Bloom (bloomz_3b)
+- [X] ChatGLM (chatglm2_6b)
 - [X] Deepseek (deepseek_moe_16b_base)
 - [X] Facebook m2m100 (facebook_m2m100_418m)
 - [X] Falcon (falcon_7b_instruct, falcon_40b_instruct)
