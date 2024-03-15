@@ -56,8 +56,8 @@ public:
     bool Init(const string &config_path);
 
     Socket::RetCode HandleRequest(BaseHttpServer::HttpResponseWriter &writer,
-        const InferFlowRequest &request);
-    bool HandleRequest(string &response, const InferFlowRequest &request, FunctionId fn);
+        const InferFlowRequest &request, bool is_openai_mode);
+    bool HandleRequest(string &response, const InferFlowRequest &request, FunctionId fn, bool is_openai_mode);
 
     bool ParseRequest(InferFlowRequest &request, const wstring &request_str);
 
@@ -72,11 +72,11 @@ protected:
 
     bool LoadConfig(const string &config_path);
 
-    bool HandleRequest_ProcessQuery(string &response, const InferFlowRequest &request);
+    bool HandleRequest_ProcessQuery(string &response, const InferFlowRequest &request, bool is_openai_mode);
     bool HandleRequest_GetStat(string &response, const InferFlowRequest &request);
 
     Socket::RetCode HandleRequest_Inner(BaseHttpServer::HttpResponseWriter *writer,
-        InferFlowResponseChunk *chunk_ptr, const InferFlowRequest &request);
+        InferFlowResponseChunk *chunk_ptr, const InferFlowRequest &request, bool is_openai_mode);
 
     static int GetUtf8EndPos(const string &text);
 };

@@ -228,6 +228,45 @@ Run an HTTP client, to interact with the Inferflow service via the HTTP protocol
   
   - **Example body text**: ```{"text": "Write an article about the weather of Seattle.", "res_prefix": "", "decoding_alg": "sample.top_p", "random_seed": 1, "temperature": 0.7, "is_streaming_mode": 0}```
 
+### Compatibility with OpenAI's Chat Completions API
+
+  The Inferflow service also provides support for [OpenAI's Chat Completions API](https://platform.openai.com/docs/api-reference/chat).
+  The API can be tested in one of the following ways.
+
+  * **Option-1**: The OpenAI Python API Library
+
+    Below are the sample codes. Please first install the openai Python module (pip install openai) before running the following codes.
+    
+    ```python
+    import openai
+
+    openai.base_url = "http://localhost:8080"
+    openai.api_key = "sk-no-key-required"
+
+    is_streaming = True
+
+    response = openai.chat.completions.create(
+        model="default",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Write an article about the weather of Seattle."}
+        ],
+        stream = is_streaming
+    )
+
+    if is_streaming:
+        for chunk in response:
+            print(chunk.choices[0].delta.content or "", end = "")
+    else:
+        print(response.choices[0].message.content)
+    ```
+
+  * **Option-2**: The CURL command
+
+    ```bash
+    curl -X post -d '{"model": "gpt-3.5-turbo","messages": [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Write an article about the weather of Seattle."}], "stream": true}' http://localhost:8080/chat/completions
+    ```
+
 
 
 ## Reference

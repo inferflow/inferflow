@@ -88,8 +88,32 @@ bool InferFlowRequest::FromJson(const JsonObject &jobj,
     jobj.GetFieldValue(header_obj, L"header", jdoc);
     bool ret = header.FromJson(header_obj, jdoc);
 
+    JsonArray messages_array;
+    bool messages_ret = jobj.GetFieldValue(messages_array, L"messages", jdoc);
+    if (messages_ret)
+    {
+        ret = FromJson_OpenAI(messages_array, jdoc);
+
+        jobj.GetFieldValue(max_output_len, L"max_tokens", jdoc);
+        jobj.GetFieldValue(is_streaming_mode, L"stream", jdoc);
+        jobj.GetFieldValue(temperature, L"temperature", jdoc);
+        jobj.GetFieldValue(random_seed, L"seed", jdoc);
+
+        return ret;
+    }
+
     //
-    jobj.GetFieldValue(query.text, L"text", jdoc);
+    ret = FromJson_Std(jobj, jdoc);
+
+    return ret;
+}
+
+bool InferFlowRequest::FromJson_Std(const JsonObject &jobj,
+    const JsonDoc &jdoc)
+{
+    bool ret = true;
+
+    ret = jobj.GetFieldValue(query.text, L"text", jdoc);
     jobj.GetFieldValue(query.system_prompt, L"system_prompt", jdoc);
     jobj.GetFieldValue(query.response_prefix, L"res_prefix", jdoc);
     jobj.GetFieldValue(query.encoder_input_template, L"encoder_input_template", jdoc);
@@ -108,6 +132,36 @@ bool InferFlowRequest::FromJson(const JsonObject &jobj,
         is_streaming_mode = num != 0;
     }
     jobj.GetFieldValue(is_streaming_mode, L"is_streaming_mode", jdoc);
+
+    return ret;
+}
+
+bool InferFlowRequest::FromJson_OpenAI(const JsonArray &jarr,
+    const JsonDoc &jdoc)
+{
+    bool ret = true;
+
+    for (size_t i = 0; i < jarr.size; i++) 
+    {
+        JsonObject message_obj = jarr.items[i].GetJObject();
+        wstring role;
+        ret = message_obj.GetFieldValue(role, L"role", jdoc);
+        Macro_RetFalseIf(!ret);
+
+        if (role == L"user") {
+            message_obj.GetFieldValue(query.text, L"content", jdoc);
+        }
+        else if (role == L"system") {
+            message_obj.GetFieldValue(query.system_prompt, L"content", jdoc);
+        }
+        else if (role == L"assistant") {
+            message_obj.GetFieldValue(query.response_prefix, L"content", jdoc);
+        }
+    }
+
+    if (query.text.empty()) {
+        ret = false;
+    }
 
     return ret;
 }
@@ -149,6 +203,59 @@ void InferFlowResponseChunk::ToJson(wstring &jstr) const
         ss << L",\"is_end\":" << (is_end ? 1 : 0);
     }
 
+    ss << L"}";
+    jstr = ss.str();
+}
+
+void InferFlowResponseChunk::ToJson_OpenAI(wstring &jstr) const
+{
+    wstringstream ss;
+    ss << L"{";
+    ss << L"\"object\":\"chat.completion\"";
+    ss << L",\"choices\":[";
+    ss << L"{";
+    ss << L"\"index\":0";
+    ss << L",\"logprobs\":null";
+    ss << L",\"finish_reason\":";
+    if (error_text.empty()) {
+        ss << L"\"stop\"";
+    }
+    else {
+       JsonBuilder::AppendFieldValue(ss, error_text);
+    }
+    ss << L",\"message\":{";
+    ss << L"\"content\":";
+    JsonBuilder::AppendFieldValue(ss, text);
+    ss << L"}";
+    ss << L"}";
+    ss << L"]";
+    ss << L"}";
+    jstr = ss.str();
+}
+
+void InferFlowResponseChunk::ToJson_OpenAI_Chunk(wstring &jstr) const
+{
+    wstringstream ss;
+    ss << L"data: ";
+    ss << L"{";
+    ss << L"\"object\":\"chat.completion.chunk\"";
+    ss << L",\"choices\":[";
+    ss << L"{";
+    ss << L"\"index\":0";
+    ss << L",\"logprobs\":null";
+    ss << L",\"finish_reason\":";
+    if (!is_end) {
+        ss << L"null";
+    }
+    else {
+        ss << L"\"stop\"";
+    }
+    ss << L",\"delta\":{";
+    ss << L"\"content\":";
+    JsonBuilder::AppendFieldValue(ss, text);
+    ss << L"}";
+    ss << L"}";
+    ss << L"]";
     ss << L"}";
     jstr = ss.str();
 }

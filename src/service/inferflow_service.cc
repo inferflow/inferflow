@@ -132,16 +132,16 @@ bool InferFlowServiceCore::Infer(int max_output_len)
 
 Socket::RetCode InferFlowServiceCore::HandleRequest(
     BaseHttpServer::HttpResponseWriter &writer,
-    const InferFlowRequest &request)
+    const InferFlowRequest &request, bool is_openai_mode)
 {
-    auto ret_code = HandleRequest_Inner(&writer, nullptr, request);
+    auto ret_code = HandleRequest_Inner(&writer, nullptr, request, is_openai_mode);
     return ret_code;
 }
 
 Socket::RetCode InferFlowServiceCore::HandleRequest_Inner(
     BaseHttpServer::HttpResponseWriter *writer,
     InferFlowResponseChunk *chunk_ptr,
-    const InferFlowRequest &request)
+    const InferFlowRequest &request, bool is_openai_mode)
 {
     Socket::RetCode ret_code = Socket::RetCode::Success;
     bool ret = true;
@@ -203,7 +203,14 @@ Socket::RetCode InferFlowServiceCore::HandleRequest_Inner(
         if (is_streaming)
         {
             wstring response_str;
-            chunk_ptr->ToJson(response_str);
+            if (is_openai_mode) {
+                chunk_ptr->ToJson_OpenAI_Chunk(response_str);
+            }
+            else {
+                chunk_ptr->ToJson(response_str);
+            }
+            response_str += L"\n\n";
+
             string utf8_str = StringUtil::ToUtf8(response_str);
 
             ret_code = writer->WriteChunk(utf8_str);
@@ -226,15 +233,16 @@ Socket::RetCode InferFlowServiceCore::HandleRequest_Inner(
             auto &res_item = iter->second;
             is_end = is_end || res_item.is_end;
 
-            if (is_end)
+            if (is_end) 
             {
                 query_to_result_.erase(iter);
             }
-            else
+            else 
             {
                 new_text += res_item.text;
                 res_item.text.clear();
             }
+
         }
         result_lock_.unlock(); //unlock
 
@@ -259,7 +267,14 @@ Socket::RetCode InferFlowServiceCore::HandleRequest_Inner(
             {
                 wstring response_str;
                 chunk_ptr->is_end = is_end;
-                chunk_ptr->ToJson(response_str);
+                if (is_openai_mode) {
+                    chunk_ptr->ToJson_OpenAI_Chunk(response_str);
+                }
+                else {
+                    chunk_ptr->ToJson(response_str);
+                }
+                response_str += L"\n\n";
+                // chunk_ptr->ToJson(response_str);
                 chunk_ptr->Clear(); //!!!
                 tm.Start();
 
@@ -285,7 +300,7 @@ Socket::RetCode InferFlowServiceCore::HandleRequest_Inner(
 }
 
 bool InferFlowServiceCore::HandleRequest(string &response,
-    const InferFlowRequest &request, FunctionId fn)
+    const InferFlowRequest &request, FunctionId fn, bool is_openai_mode)
 {
     bool ret = true;
     switch (fn)
@@ -295,7 +310,7 @@ bool InferFlowServiceCore::HandleRequest(string &response,
         break;
     case FunctionId::ProcessQuery:
     default:
-        ret = HandleRequest_ProcessQuery(response, request);
+        ret = HandleRequest_ProcessQuery(response, request, is_openai_mode);
         break;
     }
 
@@ -320,14 +335,14 @@ InferFlowServiceCore::FunctionId InferFlowServiceCore::GetFunctionId(const strin
 }
 
 bool InferFlowServiceCore::HandleRequest_ProcessQuery(string &response,
-    const InferFlowRequest &request)
+    const InferFlowRequest &request, bool is_openai_mode)
 {
     bool ret = true;
     response.clear();
 
     auto start_tm = chrono::steady_clock::now();
     InferFlowResponseChunk chunk;
-    HandleRequest_Inner(nullptr, &chunk, request);
+    HandleRequest_Inner(nullptr, &chunk, request, is_openai_mode);
     auto tm = chrono::steady_clock::now();
 
     int time_cost = (int)chrono::duration_cast<chrono::milliseconds>(tm - start_tm).count();
@@ -338,7 +353,13 @@ bool InferFlowServiceCore::HandleRequest_ProcessQuery(string &response,
     }
 
     wstring json_str;
-    chunk.ToJson(json_str);
+    if (is_openai_mode) {
+        chunk.ToJson_OpenAI(json_str);
+    }
+    else {
+        chunk.ToJson(json_str);
+    }
+    // chunk.ToJson(json_str);
     StringUtil::ToUtf8(response, json_str);
 
     /*
@@ -463,6 +484,13 @@ bool InferFlowService::HandleRequest(HttpResponseWriter &writer,
     response.status_code = 200;
     bool is_valid_query = true;
     const auto &http_request = task.request;
+
+    bool is_openai_mode = false;
+    string url = http_request.url;
+    if (url.find("/chat/completions") != string::npos) {
+        is_openai_mode = true;
+    }
+
     if (is_unknown_type)
     {
         response.status_code = 400; //bad request
@@ -516,14 +544,14 @@ bool InferFlowService::HandleRequest(HttpResponseWriter &writer,
             response.status_code, be_keep_alive, body_len);
         if (is_valid_query && ret_code == Socket::RetCode::Success)
         {
-            ret_code = core_.HandleRequest(writer, request);
+            ret_code = core_.HandleRequest(writer, request, is_openai_mode);
         }
     }
     else
     {
         string response_body;
         if (is_valid_query) {
-            ret = core_.HandleRequest(response_body, request, fn);
+            ret = core_.HandleRequest(response_body, request, fn, is_openai_mode);
         }
 
         int body_len = (int)response_body.size();
