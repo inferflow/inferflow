@@ -11,6 +11,7 @@ using std::wstring;
 using sslib::JsonDoc;
 using sslib::JsonObject;
 using sslib::JsonParser;
+using sslib::JsonArray;
 
 class InferFlowRequest
 {
@@ -21,7 +22,7 @@ public:
     uint32_t max_output_len = 1024; //maximal number of output tokens
     int random_seed = 0;
     float temperature = 1.0f;
-    bool is_streaming_mode = true;
+    bool is_streaming_mode = false;
 
 public:
     void Clear();
@@ -29,6 +30,9 @@ public:
     void ToJson(std::wostream &writer) const;
     bool FromJson(const wstring &jstr, JsonParser &jparser);
     bool FromJson(const JsonObject &jobj, const JsonDoc &jdoc);
+
+    bool FromJson_Std(const JsonObject &jobj, const JsonDoc &jdoc);
+    bool FromJson_OpenAI(const JsonArray &jobj, const JsonDoc &jdoc);
 };
 
 class InferFlowResponseChunk
@@ -45,6 +49,9 @@ public:
     void Clear();
 
     void ToJson(wstring &jstr) const;
+    void ToJson_OpenAI(wstring &jstr) const;
+    void ToJson_OpenAI_Chunk(wstring &jstr) const;
+
     bool FromJson(const wstring &jstr, JsonParser &parser);
     bool FromJson(const JsonObject &jobj, const JsonDoc &jdoc);
 };
